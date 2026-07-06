@@ -4,6 +4,7 @@ import path from 'path';
 import {defineConfig} from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+
 export default defineConfig(() => {
   return {
     base: '/smart-line/',

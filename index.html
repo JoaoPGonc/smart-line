@@ -1,6 +1,15 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+  try {
+    localStorage.getItem('teste');
+  } catch (e) {
+    var memoriaFalsa = { getItem: function() { return null; }, setItem: function() {}, removeItem: function() {}, clear: function() {} };
+    Object.defineProperty(window, 'localStorage', { value: memoriaFalsa });
+    Object.defineProperty(window, 'sessionStorage', { value: memoriaFalsa });
+  }
+</script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>My Google AI Studio App</title>
