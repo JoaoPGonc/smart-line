@@ -1,0 +1,90 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Caminhoneiro user profile and trip coordinates",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth User ID"
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the trucker"
+        },
+        "email": {
+          "type": "string",
+          "description": "Driver operational email"
+        },
+        "cpf": {
+          "type": "string",
+          "description": "CPF tax ID"
+        },
+        "plate": {
+          "type": "string",
+          "description": "License plate of the truck"
+        },
+        "company": {
+          "type": "string",
+          "description": "Employer or logistics carrier"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp of user registration"
+        },
+        "appointments": {
+          "type": "array",
+          "description": "List of booked trip appointments"
+        },
+        "selectedAppointmentIndex": {
+          "type": "integer",
+          "description": "Currently active appointment index"
+        },
+        "lastOriginCoords": {
+          "$ref": "#/entities/Coords",
+          "description": "Origin address coordinate block"
+        },
+        "lastDestCoords": {
+          "$ref": "#/entities/Coords",
+          "description": "Destination address coordinate block"
+        }
+      },
+      "required": ["uid", "name", "email", "cpf"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Trip booking and queue optimization scheduling",
+      "type": "object",
+      "properties": {
+        "origin": { "type": "string" },
+        "destination": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "estimatedDuration": { "type": "string" },
+        "estimatedArrival": { "type": "string" },
+        "portQueueTime": { "type": "string" },
+        "savingsMinutes": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "confirmed"] }
+      },
+      "required": ["origin", "destination", "date", "time", "estimatedDuration", "estimatedArrival", "portQueueTime", "savingsMinutes", "status"]
+    },
+    "Coords": {
+      "title": "Coords",
+      "description": "Geographical location latitude, longitude and name",
+      "type": "object",
+      "properties": {
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "name": { "type": "string" }
+      },
+      "required": ["lat", "lng", "name"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "#/entities/User",
+      "description": "Collection of user driver records mapping their active schedules and locations"
+    }
+  }
+}

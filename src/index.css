@@ -1,0 +1,122 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "leaflet/dist/leaflet.css";
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Smart Dark Mode Override Engine */
+.dark-mode-container {
+  color-scheme: dark;
+  background-color: #0b0f19 !important;
+  color: #f1f5f9 !important;
+}
+
+.dark-mode-container div,
+.dark-mode-container form,
+.dark-mode-container section,
+.dark-mode-container main,
+.dark-mode-container header,
+.dark-mode-container footer {
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.dark-mode-container .bg-slate-50,
+.dark-mode-container .bg-slate-100,
+.dark-mode-container .bg-slate-100\/70,
+.dark-mode-container .bg-gray-50,
+.dark-mode-container #login-screen,
+.dark-mode-container #schedule-screen,
+.dark-mode-container #schedule-confirmed,
+.dark-mode-container #compare-savings,
+.dark-mode-container #route-overview,
+.dark-mode-container #transit-center,
+.dark-mode-container #emit-alert,
+.dark-mode-container #alert-success,
+.dark-mode-container #who-we-are,
+.dark-mode-container #forgot-password,
+.dark-mode-container #register-screen,
+.dark-mode-container #terms-of-use,
+.dark-mode-container #my-account {
+  background-color: #0b0f19 !important;
+}
+
+.dark-mode-container .bg-white,
+.dark-mode-container .bg-white\/95,
+.dark-mode-container .bg-white\/90,
+.dark-mode-container .bg-white\/80,
+.dark-mode-container .bg-slate-50\/80 {
+  background-color: #111827 !important;
+}
+
+.dark-mode-container .bg-blue-50,
+.dark-mode-container .bg-slate-100\/70,
+.dark-mode-container .bg-slate-100 {
+  background-color: #1e293b !important;
+}
+
+.dark-mode-container .text-slate-900,
+.dark-mode-container .text-slate-800,
+.dark-mode-container .text-slate-700,
+.dark-mode-container .text-gray-900,
+.dark-mode-container .text-blue-950,
+.dark-mode-container .text-slate-950,
+.dark-mode-container h1,
+.dark-mode-container h2,
+.dark-mode-container h3,
+.dark-mode-container h4 {
+  color: #f1f5f9 !important;
+}
+
+.dark-mode-container .text-slate-500,
+.dark-mode-container .text-slate-400,
+.dark-mode-container .text-slate-600,
+.dark-mode-container .text-gray-500 {
+  color: #94a3b8 !important;
+}
+
+.dark-mode-container .border-slate-50,
+.dark-mode-container .border-slate-100,
+.dark-mode-container .border-slate-200,
+.dark-mode-container .border-slate-200\/80,
+.dark-mode-container .border-slate-200\/50,
+.dark-mode-container .border-slate-300 {
+  border-color: #1e293b !important;
+}
+
+.dark-mode-container input,
+.dark-mode-container select,
+.dark-mode-container textarea {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+
+.dark-mode-container input::placeholder {
+  color: #64748b !important;
+}
+
+.dark-mode-container .divide-slate-50 > * + *,
+.dark-mode-container .divide-slate-100 > * + * {
+  border-color: #1e293b !important;
+}
+
+.dark-mode-container .hover\:bg-slate-50:hover,
+.dark-mode-container .group:hover {
+  background-color: #1e293b !important;
+}
+
+.dark-mode-container .bg-blue-950 {
+  background-color: #1e3a8a !important;
+}
+
+.dark-mode-container .hover\:bg-blue-900:hover {
+  background-color: #2563eb !important;
+}
+
+.dark-mode-container .text-blue-900 {
+  color: #60a5fa !important;
+}
+

@@ -1,0 +1,422 @@
+import React, { useState, useEffect, useRef } from "react";
+import L from "leaflet";
+import { getStopsForRoute, snapToRoute } from "../utils/routeUtils";
+import { Compass } from "lucide-react";
+
+interface MapComponentProps {
+  routeMode?: "overview" | "active" | "static";
+  activeStopIndex?: number;
+  originCoords?: { lat: number; lng: number; name?: string } | null;
+  destCoords?: { lat: number; lng: number; name?: string } | null;
+  progress?: number; // Navigation progress along the route (0 to 1)
+  userGpsCoords?: { lat: number; lng: number } | null;
+  recenterTrigger?: number;
+  showZoomControls?: boolean;
+  showGpsIndicator?: boolean;
+  stops?: Array<{ id: string; title: string; desc: string; lat: number; lng: number; time: string }> | null;
+}
+
+export default function MapComponent({ 
+  routeMode = "static", 
+  activeStopIndex = 0,
+  originCoords = null,
+  destCoords = null,
+  progress = 0.15,
+  userGpsCoords = null,
+  recenterTrigger = 0,
+  showZoomControls = true,
+  showGpsIndicator = true,
+  stops = null
+}: MapComponentProps) {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const routePolylineRef = useRef<L.Polyline | null>(null);
+  const routePolylineGlowRef = useRef<L.Polyline | null>(null);
+  const [loadingRoute, setLoadingRoute] = useState(false);
+
+  const routePointsRef = useRef<[number, number][]>([]);
+  const truckMarkerRef = useRef<L.Marker | null>(null);
+  const stopMarkersRef = useRef<L.Marker[]>([]);
+
+  // Default Espirito Santo coordinates
+  const defaultOrigin = { lat: -18.0253, lng: -40.1509, name: "Posto Carreteiro (Pedro Canário)" };
+  const defaultDest = { lat: -20.2831, lng: -40.2435, name: "Porto de Tubarão (Vitória)" };
+
+  const startCoords = originCoords && typeof originCoords.lat === "number" && !isNaN(originCoords.lat) && typeof originCoords.lng === "number" && !isNaN(originCoords.lng)
+    ? originCoords 
+    : defaultOrigin;
+
+  const endCoords = destCoords && typeof destCoords.lat === "number" && !isNaN(destCoords.lat) && typeof destCoords.lng === "number" && !isNaN(destCoords.lng)
+    ? destCoords 
+    : defaultDest;
+
+  // Helper to draw or update the truck marker position
+  const updateTruckPosition = (map: L.Map, points: [number, number][]) => {
+    if (routeMode !== "active") return;
+    if (!points || !Array.isArray(points) || points.length === 0) return;
+    
+    let lat = 0;
+    let lng = 0;
+
+    if (userGpsCoords) {
+      lat = userGpsCoords.lat;
+      lng = userGpsCoords.lng;
+    } else if (points.length > 0) {
+      const targetIndex = Math.min(Math.floor(points.length * progress), points.length - 1);
+      lat = points[targetIndex][0];
+      lng = points[targetIndex][1];
+    } else {
+      return;
+    }
+
+    if (truckMarkerRef.current) {
+      truckMarkerRef.current.setLatLng([lat, lng]);
+    } else {
+      const gpsDotIcon = L.divIcon({
+        html: `
+          <div class="flex flex-col items-center select-none">
+            <div class="relative flex items-center justify-center">
+              <div class="absolute w-8 h-8 rounded-full bg-blue-500/40" style="animation: ping 2.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></div>
+              <div class="w-5 h-5 rounded-full bg-blue-600 border-2 border-white shadow-lg flex items-center justify-center z-10">
+                <div class="w-2 h-2 rounded-full bg-white shadow-inner"></div>
+              </div>
+            </div>
+          </div>
+        `,
+        className: "custom-leaflet-marker",
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+      });
+      truckMarkerRef.current = L.marker([lat, lng], { icon: gpsDotIcon }).addTo(map);
+      truckMarkerRef.current.bindPopup("<b>Sua Localização (GPS)</b><br/>Sinal ativo em tempo real");
+    }
+    map.panTo([lat, lng], { animate: true, duration: 0.6 });
+  };
+
+  // Initialize Leaflet Map and fetch roads
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    // Clean up any existing map instance
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
+
+    if (truckMarkerRef.current) {
+      truckMarkerRef.current.remove();
+      truckMarkerRef.current = null;
+    }
+
+    // Set center coordinates & fit bounds
+    const bounds = L.latLngBounds([
+      [startCoords.lat, startCoords.lng],
+      [endCoords.lat, endCoords.lng]
+    ]);
+
+    // Create Leaflet Map Instance
+    const map = L.map(mapContainerRef.current, {
+      zoomControl: false,
+      attributionControl: false,
+      scrollWheelZoom: true,
+      dragging: true,
+      touchZoom: true
+    });
+
+    mapInstanceRef.current = map;
+
+    // Instantly set fallback view so map always has valid size/center
+    map.setView([startCoords.lat, startCoords.lng], 10);
+
+    // Center map and zoom to fit bounds inside a setTimeout to let parent container render complete
+    const resizeAndFitTimer = setTimeout(() => {
+      if (!mapInstanceRef.current) return;
+      mapInstanceRef.current.invalidateSize();
+      const currentSize = mapInstanceRef.current.getSize();
+      if (currentSize.x > 0 && currentSize.y > 0 && bounds.isValid()) {
+        try {
+          mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50] });
+        } catch (e) {
+          console.warn("fitBounds failed, falling back to setView", e);
+        }
+      }
+    }, 150);
+
+    // Add Free OpenStreetMap Tile Layer
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19
+    }).addTo(map);
+
+    // 1. Origin Marker
+    const originIcon = L.divIcon({
+      html: `
+        <div class="flex flex-col items-center select-none">
+          <div class="w-7 h-7 rounded-full bg-blue-900 border-2 border-white flex items-center justify-center text-white shadow-lg font-bold text-xs">
+            ⚓
+          </div>
+          <div class="bg-blue-950 text-white text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shadow-md whitespace-nowrap mt-1 border border-blue-800">
+            ${startCoords.name ? startCoords.name.split(",")[0] : "Partida"}
+          </div>
+        </div>
+      `,
+      className: "custom-leaflet-marker",
+      iconSize: [80, 50],
+      iconAnchor: [40, 35]
+    });
+    L.marker([startCoords.lat, startCoords.lng], { icon: originIcon })
+      .addTo(map)
+      .bindPopup(`<b>Ponto de Partida</b><br/>${startCoords.name || "Origem"}`);
+
+    // 2. Destination Marker
+    const destIcon = L.divIcon({
+      html: `
+        <div class="flex flex-col items-center select-none">
+          <div class="w-7 h-7 rounded-full bg-red-600 border-2 border-white flex items-center justify-center text-white shadow-lg font-bold text-xs animate-bounce">
+            🚩
+          </div>
+          <div class="bg-red-950 text-white text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shadow-md whitespace-nowrap mt-1 border border-red-800">
+            ${endCoords.name ? endCoords.name.split(",")[0] : "Destino"}
+          </div>
+        </div>
+      `,
+      className: "custom-leaflet-marker",
+      iconSize: [80, 50],
+      iconAnchor: [40, 35]
+    });
+    L.marker([endCoords.lat, endCoords.lng], { icon: destIcon })
+      .addTo(map)
+      .bindPopup(`<b>Destino Final</b><br/>${endCoords.name || "Destino"}`);
+
+    // 3. Helper to draw stops correctly on any route path
+    const drawStops = (points: [number, number][]) => {
+      stopMarkersRef.current.forEach(m => m.remove());
+      stopMarkersRef.current = [];
+      if (!points || !Array.isArray(points) || points.length === 0) return;
+
+      const stopsToDraw = stops && stops.length > 0 
+        ? stops 
+        : getStopsForRoute(endCoords.name || "", () => "");
+
+      stopsToDraw.forEach((stop, idx) => {
+        // Snap raw coordinates to the computed OSRM road polyline to prevent visual drift
+        const snapped = snapToRoute(stop.lat, stop.lng, points);
+        const lat = snapped.lat;
+        const lng = snapped.lng;
+
+        const isChecked = activeStopIndex > idx;
+        const stopIcon = L.divIcon({
+          html: `
+            <div class="flex flex-col items-center select-none">
+              <div class="w-5 h-5 rounded-full ${isChecked ? 'bg-emerald-500' : 'bg-orange-500'} border-2 border-white flex items-center justify-center text-white shadow-md font-bold text-[9px]">
+                ${isChecked ? '✓' : (idx + 1).toString()}
+              </div>
+              <div class="bg-slate-900/90 text-slate-200 text-[7px] font-sans font-semibold px-1 py-0.5 rounded shadow-sm whitespace-nowrap mt-1 border border-slate-800">
+                ${stop.title || (stop as any).name || "Parada"}
+              </div>
+            </div>
+          `,
+          className: "custom-leaflet-marker",
+          iconSize: [80, 40],
+          iconAnchor: [40, 30]
+        });
+
+        const marker = L.marker([lat, lng], { icon: stopIcon })
+          .addTo(map)
+          .bindPopup(`<b>Parada ${idx + 1}: ${stop.title || (stop as any).name || "Parada"}</b><br/>${stop.desc}`);
+
+        stopMarkersRef.current.push(marker);
+      });
+    };
+
+    // 4. Fetch dynamic turn-by-turn road-conforming route from FREE OSRM API
+    setLoadingRoute(true);
+    
+    const coordsList = [
+      `${startCoords.lng},${startCoords.lat}`
+    ];
+    
+    const stopsToRoute = stops && stops.length > 0 
+      ? stops 
+      : getStopsForRoute(endCoords.name || "", () => "");
+
+    stopsToRoute.forEach(stop => {
+      coordsList.push(`${stop.lng},${stop.lat}`);
+    });
+    
+    coordsList.push(`${endCoords.lng},${endCoords.lat}`);
+    
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordsList.join(";")}?overview=full&geometries=geojson`;
+
+    fetch(osrmUrl)
+      .then((res) => {
+        if (!res.ok) throw new Error("OSRM limit reached or network error");
+        return res.json();
+      })
+      .then((data) => {
+        // Guard: If the map component has been unmounted or map destroyed during fetch, return immediately
+        if (!mapInstanceRef.current || mapInstanceRef.current !== map) return;
+
+        if (data.routes && data.routes[0]) {
+          const rawGeometry = data.routes[0].geometry.coordinates;
+          const routePoints: [number, number][] = rawGeometry.map((pt: [number, number]) => [pt[1], pt[0]] as [number, number]);
+
+          routePointsRef.current = routePoints;
+
+          // Draw high contrast outer glowing line
+          const polyline = L.polyline(routePoints, {
+            color: "#2563eb",
+            weight: 5,
+            opacity: 0.85,
+            lineCap: "round",
+            lineJoin: "round"
+          }).addTo(map);
+
+          // Inner glowing fine path
+          const polylineGlow = L.polyline(routePoints, {
+            color: "#60a5fa",
+            weight: 2,
+            opacity: 0.95,
+            lineCap: "round",
+            lineJoin: "round"
+          }).addTo(map);
+
+          routePolylineRef.current = polyline;
+          routePolylineGlowRef.current = polylineGlow;
+
+          // Draw stops snapped directly onto the calculated road route!
+          drawStops(routePoints);
+
+          // Place initial truck if active
+          if (routeMode === "active") {
+            updateTruckPosition(map, routePoints);
+          }
+        } else {
+          throw new Error("No route coordinates returned");
+        }
+      })
+      .catch((err) => {
+        // Guard: If the map component has been unmounted or map destroyed during fetch, return immediately
+        if (!mapInstanceRef.current || mapInstanceRef.current !== map) return;
+
+        console.warn("Falling back to direct geodesic route polyline:", err);
+        const fallbackPoints: [number, number][] = [
+          [startCoords.lat, startCoords.lng],
+          [endCoords.lat, endCoords.lng]
+        ];
+        routePointsRef.current = fallbackPoints;
+
+        const polyline = L.polyline(fallbackPoints, {
+          color: "#dc2626",
+          weight: 4,
+          opacity: 0.75,
+          dashArray: "6, 8",
+          lineCap: "round"
+        }).addTo(map);
+
+        routePolylineRef.current = polyline;
+
+        // Draw stops with straight line interpolation!
+        drawStops(fallbackPoints);
+
+        if (routeMode === "active") {
+          updateTruckPosition(map, fallbackPoints);
+        }
+      })
+      .finally(() => {
+        // Guard: Only update state if the map component is still mounted and using the same map instance
+        if (mapInstanceRef.current && mapInstanceRef.current === map) {
+          setLoadingRoute(false);
+        }
+      });
+
+    const handleResize = () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    };
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      clearTimeout(resizeAndFitTimer);
+      window.removeEventListener("resize", handleResize);
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [routeMode, startCoords.lat, startCoords.lng, endCoords.lat, endCoords.lng, stops]);
+
+  // 5. Update truck position smoothly when the progress or userGpsCoords updates
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || routeMode !== "active") return;
+
+    const points = routePointsRef.current;
+    updateTruckPosition(map, points);
+  }, [progress, userGpsCoords, routeMode]);
+
+  // 6. Recenter map bounds on demand when recenterTrigger changes
+  useEffect(() => {
+    if (recenterTrigger && mapInstanceRef.current) {
+      const bounds = L.latLngBounds([
+        [startCoords.lat, startCoords.lng],
+        [endCoords.lat, endCoords.lng]
+      ]);
+      if (bounds.isValid()) {
+        try {
+          mapInstanceRef.current.invalidateSize();
+          mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], animate: true });
+        } catch (e) {
+          console.warn("Recenter fitBounds failed:", e);
+        }
+      }
+    }
+  }, [recenterTrigger, startCoords.lat, startCoords.lng, endCoords.lat, endCoords.lng]);
+
+  const handleZoomIn = () => {
+    if (mapInstanceRef.current) mapInstanceRef.current.zoomIn();
+  };
+
+  const handleZoomOut = () => {
+    if (mapInstanceRef.current) mapInstanceRef.current.zoomOut();
+  };
+
+  return (
+    <div className="relative w-full h-full bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 shadow-xl select-none flex flex-col justify-between">
+      {/* Map HTML container */}
+      <div ref={mapContainerRef} className="absolute inset-0 z-0 w-full h-full" style={{ background: "#0f172a" }}></div>
+
+      {/* Zoom controls overlay */}
+      {showZoomControls && (
+        <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
+          <div className="p-1.5 bg-slate-900/95 border border-slate-800 rounded-xl flex flex-col gap-1 items-center shadow-lg backdrop-blur-md">
+            <button 
+              onClick={handleZoomIn}
+              className="text-slate-200 hover:text-white font-black w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 active:scale-90 transition text-sm cursor-pointer"
+            >
+              +
+            </button>
+            <div className="h-[1px] w-5 bg-slate-800"></div>
+            <button 
+              onClick={handleZoomOut}
+              className="text-slate-200 hover:text-white font-black w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 active:scale-90 transition text-sm cursor-pointer"
+            >
+              -
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Map loading/geocoding indicator */}
+      {showGpsIndicator && (
+        <div className="absolute top-3 left-3 flex flex-col gap-1 z-10 pointer-events-none">
+          <div className="bg-slate-900/95 text-slate-200 text-[10px] font-mono py-1.5 px-2.5 rounded-lg border border-slate-800 backdrop-blur-md flex items-center gap-1.5 shadow-md">
+            <span className={`w-2 h-2 rounded-full ${loadingRoute ? "bg-amber-500 animate-pulse" : "bg-blue-500 animate-pulse"}`}></span>
+            {loadingRoute ? "Traçando Rota..." : "Navegação por GPS"}
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

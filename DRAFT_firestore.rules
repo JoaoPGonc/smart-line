@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global Safety Net default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable, hardened global helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Validation Blueprint for User profiles
+    function isValidUser(data) {
+      return (!data.keys().hasAny(['uid']) || (data.uid == request.auth.uid))
+        && (!data.keys().hasAny(['name']) || (data.name is string && data.name.size() <= 200))
+        && (!data.keys().hasAny(['email']) || (data.email is string && data.email.size() <= 200))
+        && (!data.keys().hasAny(['cpf']) || (data.cpf is string && data.cpf.size() <= 50))
+        && (!data.keys().hasAny(['plate']) || (data.plate is string && data.plate.size() <= 50))
+        && (!data.keys().hasAny(['company']) || (data.company is string && data.company.size() <= 200))
+        && (!data.keys().hasAny(['createdAt']) || (data.createdAt is string && data.createdAt.size() <= 50))
+        && (!data.keys().hasAny(['selectedAppointmentIndex']) || (data.selectedAppointmentIndex == null || data.selectedAppointmentIndex is number))
+        && (!data.keys().hasAny(['appointments']) || (data.appointments is list && data.appointments.size() <= 50))
+        && (!data.keys().hasAny(['lastOriginCoords']) || (
+          data.lastOriginCoords is map 
+          && data.lastOriginCoords.keys().hasAll(['lat', 'lng', 'name'])
+          && data.lastOriginCoords.lat is number
+          && data.lastOriginCoords.lng is number
+          && data.lastOriginCoords.name is string && data.lastOriginCoords.name.size() <= 500
+        ))
+        && (!data.keys().hasAny(['lastDestCoords']) || (
+          data.lastDestCoords is map 
+          && data.lastDestCoords.keys().hasAll(['lat', 'lng', 'name'])
+          && data.lastDestCoords.lat is number
+          && data.lastDestCoords.lng is number
+          && data.lastDestCoords.name is string && data.lastDestCoords.name.size() <= 500
+        ));
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUser(request.resource.data) && (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['appointments', 'selectedAppointmentIndex', 'lastOriginCoords', 'lastDestCoords'])
+      );
+      allow delete: if false;
+    }
+  }
+}
