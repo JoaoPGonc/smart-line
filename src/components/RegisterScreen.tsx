@@ -57,26 +57,18 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
     } catch (err: any) {
       console.error("Erro no cadastro manual:", err);
 
-      // Mensagem amigável padrão
-      let errMsg = "Ocorreu um erro ao criar a conta.";
+      let errMsg = "Ocorreu um erro ao criar a conta. Tente novamente.";
 
-      // Tratamentos conhecidos
-      if (err && err.code === "auth/email-already-in-use") {
-        errMsg = "Este endereço de e-mail já está em uso.";
-      } else if (err && err.code === "auth/invalid-email") {
+      if (err?.code === "auth/email-already-in-use") {
+        errMsg = "Este e-mail já está em uso. Tente fazer login.";
+      } else if (err?.code === "auth/invalid-email") {
         errMsg = "Formato de e-mail inválido.";
-      } else if (err && err.code === "auth/weak-password") {
-        errMsg = "A senha deve ser mais forte (mínimo de 6 caracteres).";
-      } else if (err && err.code) {
-        // Caso genérico com código do Firebase
-        errMsg = `${err.code}: ${err.message || "Erro no cadastro"}`;
-      } else if (err instanceof Error) {
-        errMsg = err.message;
-      } else {
-        errMsg = String(err);
+      } else if (err?.code === "auth/weak-password") {
+        errMsg = "A senha deve ter no mínimo 6 caracteres.";
+      } else if (err?.code === "auth/operation-not-allowed") {
+        errMsg = "Cadastro por e-mail indisponível no momento. Use o Google.";
       }
 
-      // Exibe mensagem detalhada na UI para debug (remover após correção)
       setError(errMsg);
     } finally {
       setRegisterLoading(false);
@@ -121,13 +113,14 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
     } catch (err: any) {
       console.error("Erro ao autenticar com Google no cadastro:", err);
 
-      // Mensagem detalhada para debug
-      let errMsg = "Falha ao conectar com sua conta Google. Tente novamente.";
-      if (err && err.code) {
-        errMsg += ` (${err.code})`;
-      }
-      if (err && err.message) {
-        errMsg += ` — ${err.message}`;
+      let errMsg = "Não foi possível conectar com o Google. Tente novamente.";
+
+      if (err?.code === "auth/popup-closed-by-user") {
+        errMsg = "A janela do Google foi fechada. Tente novamente.";
+      } else if (err?.code === "auth/popup-blocked") {
+        errMsg = "O popup foi bloqueado pelo navegador. Permita popups e tente novamente.";
+      } else if (err?.code === "auth/unauthorized-domain") {
+        errMsg = "Domínio não autorizado. Contate o suporte.";
       }
 
       setError(errMsg);
@@ -170,17 +163,11 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
       }, 2000);
     } catch (err: any) {
       console.error("Erro ao salvar cadastro no Firestore:", err);
+      setError("Não foi possível salvar seu cadastro. Verifique sua conexão e tente novamente.");
 
-      // Mostra uma mensagem amigável + detalhe técnico para debug
-      const detail = err && err.code ? `${err.code}: ${err.message}` :
-                     err instanceof Error ? err.message : String(err);
-      setError("Ocorreu um erro ao finalizar o seu cadastro. " + detail);
-
-      // Ainda registra o erro estruturado (mas não deixa a função lançar)
       try {
         handleFirestoreError(err, OperationType.CREATE, `users/${currentUser?.uid}`);
       } catch (handlerErr) {
-        // handleFirestoreError lança — apenas logamos o resultado, não re-lançamos
         console.warn("handleFirestoreError lançou ao logar o erro:", handlerErr);
       }
     } finally {
