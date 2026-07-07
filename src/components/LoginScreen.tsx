@@ -23,7 +23,7 @@ export default function LoginScreen({ onNavigate, onLoginDemo }: LoginScreenProp
       await signInWithPopup(auth, provider);
       // Mark session persisted for the app routing logic
       localStorage.setItem("smartline_logged_in", "true");
-      onNavigate(ScreenId.Schedule);
+      onNavigate(ScreenId.RouteOverview);
     } catch (err: any) {
       console.error("Erro no login com Google:", err);
       if (err.code === "auth/operation-not-allowed") {
@@ -61,7 +61,7 @@ export default function LoginScreen({ onNavigate, onLoginDemo }: LoginScreenProp
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
       localStorage.setItem("smartline_logged_in", "true");
-      onNavigate(ScreenId.Schedule);
+      onNavigate(ScreenId.RouteOverview);
     } catch (err: any) {
       console.error("Erro no login por e-mail:", err);
       let msg = "Falha no login. Verifique suas credenciais.";

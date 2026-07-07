@@ -10,14 +10,8 @@ interface BottomNavigationProps {
 export default function BottomNavigation({ activeTab, onNavigate }: BottomNavigationProps) {
   const tabs = [
     {
-      id: "agendar" as const,
-      label: "AGENDAR",
-      icon: Calendar,
-      screen: ScreenId.Schedule,
-    },
-    {
       id: "trajeto" as const,
-      label: "TRAJETO",
+      label: "MEUS TRAJETOS",
       icon: RefreshCw, // elegant route loop icon like the original mockup
       screen: ScreenId.RouteOverview,
     },

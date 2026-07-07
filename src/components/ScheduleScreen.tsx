@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ScreenId, Appointment } from "../types";
 import BottomNavigation from "./BottomNavigation";
-import { Calendar as CalendarIcon, MapPin, ArrowRight, AlertCircle, RefreshCw, Navigation, Trash2, Clock } from "lucide-react";
+import { Calendar as CalendarIcon, MapPin, ArrowRight, ArrowLeft, AlertCircle, RefreshCw, Navigation, Trash2, Clock, HelpCircle, X } from "lucide-react";
 import { calculateDynamicStops, parseDurationMinutes, fetchDynamicStopsFromOSM } from "../utils/routeUtils";
 import { auth } from "../lib/firebase";
 import { logPortAppointment } from "../utils/portQueueService";
@@ -10,6 +10,7 @@ interface ScheduleScreenProps {
   onNavigate: (screen: ScreenId) => void;
   onSetAppointment: (appointment: Appointment) => void;
   onDeleteAppointment?: (index: number) => void;
+  onSelectAppointment?: (index: number) => void;
   originCoords: { lat: number; lng: number; name: string } | null;
   destCoords: { lat: number; lng: number; name: string } | null;
   onSetOriginCoords: (coords: { lat: number; lng: number; name: string }) => void;
@@ -21,6 +22,7 @@ export default function ScheduleScreen({
   onNavigate, 
   onSetAppointment,
   onDeleteAppointment,
+  onSelectAppointment,
   originCoords,
   destCoords,
   onSetOriginCoords,
@@ -32,6 +34,9 @@ export default function ScheduleScreen({
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [error, setError] = useState("");
+  const [showHint, setShowHint] = useState(false);
+  const [step, setStep] = useState(1);
+  const [appointmentToDelete, setAppointmentToDelete] = useState<number | null>(null);
 
   const [queueTime, setQueueTime] = useState("1h 45m");
   const [detectingGps, setDetectingGps] = useState(false);
@@ -366,7 +371,7 @@ export default function ScheduleScreen({
       }
     } catch (e) {}
 
-    setLoadingLabel("PROCURANDO PARADAS NO OPENSTREETMAP...");
+    setLoadingLabel("PROCURANDO PARADAS...");
     // Recalculate stops with final departureHourStr fetching real OSM gas stations along the corridor!
     const finalStops = await fetchDynamicStopsFromOSM(
       start,
@@ -421,17 +426,57 @@ export default function ScheduleScreen({
       {/* Scrollable Container */}
       <div className="flex-1 overflow-y-auto p-6 space-y-5 pb-12">
         {/* Header */}
-        <div>
-          <h2 className="text-xl font-bold text-blue-950 font-sans tracking-tight">
-            Agendar Chegada
-          </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Selecione o terminal e o horário para sua operação.
-          </p>
+        <div className="flex items-center gap-3 mb-2">
+          <button
+            onClick={() => onNavigate(ScreenId.RouteOverview)}
+            className="bg-white text-blue-950 border border-slate-200 hover:bg-slate-50 p-2 rounded-xl shadow-xs transition cursor-pointer flex-shrink-0"
+            title="Voltar"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-bold text-blue-950 font-sans tracking-tight">
+                Agendar Chegada
+              </h2>
+              <button 
+                onClick={() => setShowHint(true)}
+                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded-full transition-colors cursor-pointer"
+                title="Como funciona o agendamento"
+              >
+                <HelpCircle className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Selecione o terminal e o horário para sua operação.
+            </p>
+          </div>
         </div>
 
+        {/* Hint Box */}
+        {showHint && (
+          <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl relative">
+            <button 
+              onClick={() => setShowHint(false)}
+              className="absolute top-2 right-2 text-blue-400 hover:text-blue-600 p-1 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <h3 className="text-sm font-bold text-blue-900 mb-2 flex items-center gap-1.5">
+              <HelpCircle className="w-4 h-4" /> Como funciona o Agendamento?
+            </h3>
+            <ul className="text-xs text-blue-800 space-y-2 list-disc pl-4 font-medium leading-relaxed">
+              <li><b>Partida e Chegada:</b> Escolha sua origem e o porto de destino.</li>
+              <li><b>Horário de Chegada:</b> Insira que horas você <b>precisa estar no porto</b>.</li>
+              <li><b>Paradas:</b> Defina suas preferências de descanso.</li>
+              <li>O app fará o cálculo reverso e te dirá exatamente que horas você deve sair da origem para chegar no porto a tempo!</li>
+            </ul>
+          </div>
+        )}
+
         {/* Booking Form Card */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-4">
+        {step === 1 && (
+          <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-4">
           {error && (
             <div className="bg-red-50 text-red-600 text-[11px] p-2.5 rounded-lg font-medium border border-red-100 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
@@ -496,7 +541,7 @@ export default function ScheduleScreen({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                DATA PREVISTA
+                DATA DE CHEGADA
               </label>
               <input
                 type="date"
@@ -507,7 +552,7 @@ export default function ScheduleScreen({
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                CHEGADA NO PORTO
+                HORÁRIO DE CHEGADA
               </label>
               <input
                 type="time"
@@ -520,24 +565,41 @@ export default function ScheduleScreen({
           <p className="text-[10px] text-slate-400 mt-1 font-medium leading-tight">
             💡 Insira o horário em que você precisa <b>chegar</b> ao porto para o descarregamento. O aplicativo calculará automaticamente o horário ideal de saída.
           </p>
+          
+          <button
+            onClick={() => {
+               if (!origin.trim() || !destination.trim() || !date.trim() || !time.trim()) {
+                 setError("Por favor, preencha todos os campos antes de avançar.");
+                 return;
+               }
+               setError("");
+               setStep(2);
+            }}
+            className="w-full bg-blue-950 hover:bg-blue-900 active:scale-98 text-white font-bold py-3.5 px-4 rounded-xl shadow-md flex items-center justify-center gap-2 tracking-wider text-xs transition uppercase mt-4 cursor-pointer"
+          >
+            AVANÇAR <ArrowRight className="w-4 h-4" />
+          </button>
         </div>
+        )}
 
         {/* Driver Needs Section */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-4">
-          <div className="flex items-center gap-1.5 pb-1 border-b border-slate-50">
-            <h3 className="text-xs font-extrabold text-blue-950 uppercase tracking-wider">
-              Necessidades do Caminhoneiro
-            </h3>
-            <span className="bg-amber-50 text-amber-700 text-[8px] font-black px-2 py-0.5 rounded-md uppercase border border-amber-100">
-              Dinamizar Paradas
-            </span>
-          </div>
+        {step === 2 && (
+          <>
+            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-4">
+              <div className="flex items-center gap-1.5 pb-1 border-b border-slate-50">
+                <h3 className="text-xs font-extrabold text-blue-950 uppercase tracking-wider">
+                  Necessidades do Caminhoneiro
+                </h3>
+                <span className="bg-amber-50 text-amber-700 text-[8px] font-black px-2 py-0.5 rounded-md uppercase border border-amber-100">
+                  Dinamizar Paradas
+                </span>
+              </div>
 
-          {/* Stop Interval Selector */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-              Frequência de Paradas para Descanso
-            </label>
+              {/* Stop Interval Selector */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  Frequência de Descanso
+                </label>
             <div className="grid grid-cols-3 gap-2">
               {[
                 { value: 2, label: "Frequente", desc: "A cada 2h" },
@@ -566,7 +628,7 @@ export default function ScheduleScreen({
           {/* Facility Checkboxes */}
           <div className="space-y-3 pt-1">
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-              Serviços Essenciais Desejados nas Paradas
+              Serviços Desejados
             </label>
             <div className="grid grid-cols-2 gap-2.5">
               {[
@@ -622,13 +684,18 @@ export default function ScheduleScreen({
           </div>
         </div>
 
-
         {/* Action Buttons */}
-        <div className="space-y-3">
+        <div className="flex justify-between gap-3">
+          <button
+            onClick={() => setStep(1)}
+            className="bg-white text-blue-950 border border-slate-200 hover:bg-slate-50 font-bold py-3.5 px-6 rounded-xl shadow-xs text-xs transition uppercase cursor-pointer"
+          >
+            VOLTAR
+          </button>
           <button
             onClick={handleConfirm}
             disabled={geocoding}
-            className="w-full bg-blue-950 hover:bg-blue-900 active:scale-98 text-white font-bold py-3.5 px-4 rounded-xl shadow-md flex items-center justify-center gap-2 tracking-wider text-xs transition uppercase disabled:opacity-50"
+            className="bg-blue-950 hover:bg-blue-900 active:scale-98 text-white font-bold py-3.5 px-6 rounded-xl shadow-md flex items-center justify-center gap-2 tracking-wider text-xs transition uppercase disabled:opacity-50 cursor-pointer"
           >
             {geocoding ? (
               <>
@@ -636,21 +703,27 @@ export default function ScheduleScreen({
               </>
             ) : (
               <>
-                CONFIRMAR AGENDAMENTO <ArrowRight className="w-4 h-4" />
+                CONFIRMAR <ArrowRight className="w-4 h-4" />
               </>
             )}
           </button>
         </div>
+        </>
+        )}
 
         {/* Cancel Appointments Section */}
-        {appointments.length > 0 && (
+        {appointments.length > 0 && step === 1 && (
           <div className="bg-white p-5 rounded-2xl border border-red-100 shadow-xs mt-4">
             <h3 className="text-[11px] font-bold text-red-600 uppercase tracking-wider mb-4 flex items-center gap-1.5">
               <Trash2 className="w-3.5 h-3.5" /> Gerenciar Agendamentos
             </h3>
             <div className="space-y-3">
               {appointments.map((app, index) => (
-                <div key={index} className="flex items-center justify-between bg-slate-50 border border-slate-100 p-3 rounded-xl">
+                <div 
+                  key={index} 
+                  onClick={() => onSelectAppointment && onSelectAppointment(index)}
+                  className="flex items-center justify-between bg-slate-50 border border-slate-100 p-3 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+                >
                   <div className="flex-1 min-w-0 pr-3">
                     <h4 className="text-xs font-black text-slate-800 truncate">
                       {app.origin?.split(",")[0] || "Origem"} → {app.destination?.split(",")[0] || "Destino"}
@@ -660,14 +733,50 @@ export default function ScheduleScreen({
                     </p>
                   </div>
                   <button
-                    onClick={() => onDeleteAppointment && onDeleteAppointment(index)}
-                    className="flex-shrink-0 bg-red-50 hover:bg-red-100 text-red-600 p-2 rounded-lg transition-colors border border-red-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAppointmentToDelete(index);
+                    }}
+                    className="flex-shrink-0 bg-red-50 hover:bg-red-100 text-red-600 p-2 rounded-lg transition-colors border border-red-100 cursor-pointer"
                     title="Cancelar agendamento"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {appointmentToDelete !== null && (
+          <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-slate-100 flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-4">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-base font-black text-slate-800 uppercase tracking-widest mb-2">Excluir Agendamento?</h3>
+              <p className="text-xs text-slate-500 mb-6 font-medium leading-relaxed">
+                Tem certeza que deseja cancelar esta viagem? Esta ação não poderá ser desfeita.
+              </p>
+              
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => setAppointmentToDelete(null)}
+                  className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3.5 px-4 rounded-xl shadow-xs text-xs transition uppercase cursor-pointer"
+                >
+                  VOLTAR
+                </button>
+                <button
+                  onClick={() => {
+                    if (onDeleteAppointment) onDeleteAppointment(appointmentToDelete);
+                    setAppointmentToDelete(null);
+                  }}
+                  className="flex-1 bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold py-3.5 px-4 rounded-xl shadow-md flex items-center justify-center gap-2 text-xs transition uppercase cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" /> EXCLUIR
+                </button>
+              </div>
             </div>
           </div>
         )}

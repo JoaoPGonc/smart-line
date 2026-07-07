@@ -2,7 +2,7 @@ import { formatDisplayDate } from "../formatDateHelper";
 import React, { useState } from "react";
 import { ScreenId, Appointment } from "../types";
 import BottomNavigation from "./BottomNavigation";
-import { Clock, Hourglass, ArrowRight, CheckCircle2, ShieldAlert, CheckSquare, Square, Navigation2, Check, Landmark, MapPin, RefreshCw } from "lucide-react";
+import { Clock, Hourglass, ArrowRight, CheckCircle2, ShieldAlert, CheckSquare, Square, Navigation2, Check, Landmark, MapPin, RefreshCw, Calendar } from "lucide-react";
 import { getStopsForRoute, parseDurationMinutes, computeStopTime } from "../utils/routeUtils";
 
 interface RouteOverviewScreenProps {
@@ -29,7 +29,7 @@ export default function RouteOverviewScreen({
       <div id="route-overview" className="flex flex-col h-full bg-slate-50 overflow-hidden font-sans justify-between">
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-6">
           <div className="w-16 h-16 bg-blue-50 text-blue-900 border border-blue-100 rounded-full flex items-center justify-center shadow-xs">
-            <Hourglass className="w-8 h-8 animate-spin text-blue-900" />
+            <Hourglass className="w-8 h-8 text-blue-900" />
           </div>
           <div className="space-y-2">
             <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Aguardando Agendamento</h3>
@@ -95,9 +95,9 @@ export default function RouteOverviewScreen({
 
           <button
             onClick={() => onNavigate(ScreenId.Schedule)}
-            className="text-[9px] font-black bg-blue-50 text-blue-900 border border-blue-200 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition select-none flex items-center gap-1 uppercase"
+            className="text-[9px] font-black bg-blue-50 text-blue-900 border border-blue-200 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition select-none flex items-center gap-1.5 uppercase cursor-pointer"
           >
-            + AGENDAR NOVA
+            <Calendar className="w-3.5 h-3.5" /> NOVO AGENDAMENTO
           </button>
         </div>
 

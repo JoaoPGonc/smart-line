@@ -194,9 +194,6 @@ export default function PortsScreen({ onNavigate }: PortsScreenProps) {
             <h3 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
               Fluxo de Agendamentos Realizados
             </h3>
-            <span className="bg-blue-50 text-blue-900 text-[9px] font-extrabold tracking-wider px-2 py-0.5 rounded-full uppercase border border-blue-100">
-              ESTATÍSTICAS REAIS
-            </span>
           </div>
           {/* Time Stat */}
           <div className="flex items-baseline gap-1.5">
@@ -204,7 +201,7 @@ export default function PortsScreen({ onNavigate }: PortsScreenProps) {
             <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Agendamentos Realizados</span>
           </div>
           <p className="text-[10px] text-slate-400 leading-normal">
-            Gráfico com base nos dados reais de agendamento dos motoristas integrados na plataforma para este porto.
+            Gráfico de agendamento dos motoristas integrados na plataforma para este porto.
           </p>
           
           {/* Hourly Flow Graph */}

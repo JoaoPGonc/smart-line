@@ -68,6 +68,33 @@ export default function MyAccountScreen({ onNavigate, isDarkMode, onToggleDarkMo
     onLogout();
   };
 
+  const allAppointments = [
+    ...(appointments || []).map(a => ({
+      date: a.date,
+      status: a.status === "confirmed" ? "AGENDADO" : "PENDENTE",
+      origin: a.origin,
+      destination: a.destination,
+      time: a.time,
+      estimatedArrival: a.estimatedArrival
+    })),
+    {
+      date: "2026-07-02",
+      status: "CONCLUÍDO",
+      origin: "Belo Horizonte, MG",
+      destination: "Porto de Tubarão, ES",
+      time: "08:30",
+      estimatedArrival: "16:00"
+    },
+    {
+      date: "2026-06-25",
+      status: "CONCLUÍDO",
+      origin: "São Paulo, SP",
+      destination: "Porto de Santos, SP",
+      time: "05:00",
+      estimatedArrival: "09:00"
+    }
+  ];
+
   return (
     <div id="my-account" className="flex flex-col h-full bg-slate-50 overflow-hidden font-sans justify-between">
       {/* Scrollable account overview */}
@@ -144,14 +171,18 @@ export default function MyAccountScreen({ onNavigate, isDarkMode, onToggleDarkMo
               <History className="w-3 h-3 text-slate-400" /> HISTÓRICO DE VIAGENS
             </h4>
 
-            {appointments && appointments.length > 0 ? (
+            {allAppointments.length > 0 ? (
               <div className="bg-white rounded-2xl border border-slate-100 shadow-3xs divide-y divide-slate-50 overflow-hidden">
-                {appointments.map((app, idx) => (
+                {allAppointments.map((app, idx) => (
                   <div key={idx} className="p-4 space-y-2 hover:bg-slate-50/50 transition duration-150">
                     <div className="flex justify-between items-center">
                       <span className="text-[9px] font-bold text-slate-400 font-mono">{app.date}</span>
-                      <span className="bg-emerald-50 text-emerald-600 text-[8px] font-black tracking-wider px-2 py-0.5 rounded-full uppercase border border-emerald-100">
-                        {app.status === "confirmed" ? "Agendado" : "Pendente"}
+                      <span className={`text-[8px] font-black tracking-wider px-2 py-0.5 rounded-full uppercase border ${
+                        app.status === "AGENDADO" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                        app.status === "CONCLUÍDO" ? "bg-slate-100 text-slate-600 border-slate-200" :
+                        "bg-amber-50 text-amber-600 border-amber-100"
+                      }`}>
+                        {app.status}
                       </span>
                     </div>
                     <div>

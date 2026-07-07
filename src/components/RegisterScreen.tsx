@@ -162,7 +162,7 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
 
       setSuccess(true);
       setTimeout(() => {
-        onNavigate(ScreenId.Schedule);
+        onNavigate(ScreenId.RouteOverview);
       }, 2000);
     } catch (err: any) {
       console.error("Erro ao salvar cadastro no Firestore:", err);

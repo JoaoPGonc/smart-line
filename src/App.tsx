@@ -95,7 +95,7 @@ export default function App() {
 
       setCurrentScreen((prev) => {
         if ([ScreenId.Login, ScreenId.Register, ScreenId.ForgotPassword].includes(prev)) {
-          return ScreenId.Schedule;
+          return ScreenId.RouteOverview;
         }
         return prev;
       });
@@ -165,7 +165,7 @@ export default function App() {
             if (!profileExists) {
               return ScreenId.Register;
             }
-            return ScreenId.Schedule;
+            return ScreenId.RouteOverview;
           }
           return prev;
         });
@@ -327,7 +327,7 @@ export default function App() {
             onLoginDemo={() => {
               setIsDemo(true);
               localStorage.setItem("is_demo", "true");
-              navigateTo(ScreenId.Schedule);
+              navigateTo(ScreenId.RouteOverview);
             }}
           />
         );
@@ -366,6 +366,10 @@ export default function App() {
                 }
                 return updated;
               });
+            }}
+            onSelectAppointment={(index) => {
+              setSelectedAppointmentIndex(index);
+              navigateTo(ScreenId.RouteOverview);
             }}
             originCoords={originCoords}
             destCoords={destCoords}
@@ -459,7 +463,7 @@ export default function App() {
               setIsDemo(true);
               localStorage.setItem("is_demo", "true");
               localStorage.setItem("smartline_logged_in", "true");
-              navigateTo(ScreenId.Schedule);
+              navigateTo(ScreenId.RouteOverview);
             }}
           />
         );
