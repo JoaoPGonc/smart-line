@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ScreenId } from "../types";
 import { ArrowLeft, User, Mail, FileText, Truck, ShieldCheck, AlertCircle, RefreshCw, X, Check, Lock } from "lucide-react";
 import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
-import { GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword } from "firebase/auth";
+import { GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 
 interface RegisterScreenProps {
@@ -24,6 +24,7 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
 
+  const [registerName, setRegisterName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -32,7 +33,7 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
   // Substituído: handleManualRegister com debug de erros mais detalhados
   const handleManualRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!registerEmail || !registerPassword || !confirmPassword) {
+    if (!registerName || !registerEmail || !registerPassword || !confirmPassword) {
       setError("Por favor, preencha todos os campos do cadastro por e-mail.");
       return;
     }
@@ -49,9 +50,11 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
     setRegisterLoading(true);
     try {
       const result = await createUserWithEmailAndPassword(auth, registerEmail.trim(), registerPassword);
+      await updateProfile(result.user, { displayName: registerName.trim() });
       setCurrentUser(result.user);
       setFormData((prev) => ({
         ...prev,
+        name: registerName.trim(),
         email: registerEmail.trim(),
       }));
     } catch (err: any) {
@@ -227,6 +230,25 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
               <div className="space-y-4">
                 {/* Manual registration fields */}
                 <form onSubmit={handleManualRegister} className="space-y-3.5">
+                  <div>
+                    <label className="block text-[9px] font-bold tracking-widest text-slate-400 uppercase mb-1">
+                      Nome Completo
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-3.5 text-slate-400">
+                        <User className="w-4 h-4" />
+                      </span>
+                      <input
+                        type="text"
+                        value={registerName}
+                        onChange={(e) => setRegisterName(e.target.value)}
+                        placeholder="João da Silva"
+                        disabled={registerLoading || loading}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-900 transition"
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-[9px] font-bold tracking-widest text-slate-400 uppercase mb-1">
                       Endereço de E-mail

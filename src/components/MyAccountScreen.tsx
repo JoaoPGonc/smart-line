@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ScreenId, Appointment } from "../types";
 import BottomNavigation from "./BottomNavigation";
-import { User, Settings, Bell, Moon, Languages, HelpCircle, FileText, LogOut, ChevronRight, Check, History } from "lucide-react";
+import { User, Settings, Bell, Moon, Languages, HelpCircle, FileText, LogOut, ChevronRight, Check, History, Edit3 } from "lucide-react";
 import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { signOut } from "firebase/auth";
@@ -21,6 +21,7 @@ export default function MyAccountScreen({ onNavigate, isDarkMode, onToggleDarkMo
     plate: string;
     company: string;
     email: string;
+    photoURL?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -73,20 +74,34 @@ export default function MyAccountScreen({ onNavigate, isDarkMode, onToggleDarkMo
       <div className="flex-1 overflow-y-auto pb-12">
         
         {/* Top Header Avatar Banner */}
-        <div className="bg-gradient-to-br from-blue-950 to-blue-900 text-white px-6 pt-8 pb-7 rounded-b-3xl shadow-md relative">
+        <div className="bg-gradient-to-br from-blue-950 to-blue-900 text-white px-6 pt-8 pb-7 rounded-b-3xl shadow-md relative flex justify-between items-start">
  
           <div className="flex items-center gap-4">
             {/* Avatar block */}
-            <div className="bg-white/10 p-3 rounded-2xl border border-white/20 relative">
-              <User className="w-10 h-10 text-white" />
-              <span className="absolute bottom-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-blue-900 animate-pulse"></span>
+            <div className="bg-white/10 p-1 rounded-2xl border border-white/20 relative w-16 h-16 flex items-center justify-center overflow-hidden">
+              {profile?.photoURL ? (
+                <img src={profile.photoURL} alt="Profile" className="w-full h-full object-cover rounded-xl" />
+              ) : (
+                <User className="w-8 h-8 text-white" />
+              )}
+              <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-blue-900 animate-pulse"></span>
             </div>
  
             {/* Profile text */}
             <div>
               <h3 className="text-base font-black tracking-tight">{profile?.name || "Carregando..."}</h3>
+              <p className="text-[10px] text-blue-200">{profile?.company || "Motorista"}</p>
             </div>
           </div>
+
+          {/* Edit Profile Button */}
+          <button 
+            onClick={() => onNavigate(ScreenId.EditProfile)}
+            className="bg-white/10 hover:bg-white/20 p-2 rounded-xl transition text-white border border-white/10"
+            title="Editar Perfil"
+          >
+            <Edit3 className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Configurations List */}

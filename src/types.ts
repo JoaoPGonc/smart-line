@@ -14,6 +14,7 @@ export enum ScreenId {
   Register = 14,
   TermsOfUse = 15,
   Ports = 16,
+  EditProfile = 17,
 }
 
 export interface Appointment {

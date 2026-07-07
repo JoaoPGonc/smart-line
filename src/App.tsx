@@ -21,6 +21,7 @@ import ForgotPasswordScreen from "./components/ForgotPasswordScreen";
 import RegisterScreen from "./components/RegisterScreen";
 import TermsOfUseScreen from "./components/TermsOfUseScreen";
 import PortsScreen from "./components/PortsScreen";
+import EditProfileScreen from "./components/EditProfileScreen";
 import { ArrowLeft, RefreshCw, Anchor } from "lucide-react";
 import { auth, db, handleFirestoreError, OperationType } from "./lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
@@ -442,6 +443,8 @@ export default function App() {
             appointments={appointments}
           />
         );
+      case ScreenId.EditProfile:
+        return <EditProfileScreen onNavigate={navigateTo} />;
       case ScreenId.ForgotPassword:
         return <ForgotPasswordScreen onNavigate={navigateTo} />;
       case ScreenId.Register:
@@ -511,6 +514,7 @@ export default function App() {
             { id: ScreenId.MyAccount, label: "12. Conta" },
             { id: ScreenId.TermsOfUse, label: "13. Termos" },
             { id: ScreenId.Ports, label: "14. Portos" },
+            { id: ScreenId.EditProfile, label: "17. Ed. Perfil" },
           ].map((screen) => (
             <button
               key={screen.id}
