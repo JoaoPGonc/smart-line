@@ -363,7 +363,7 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
                       value={formData.name}
                       onChange={handleChange}
                       placeholder="Ex: João da Silva"
-                      className="w-full bg-slate-100 border border-transparent rounded-xl py-2.5 pl-10 pr-4 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:bo[...]
+                      className="w-full bg-slate-100 border border-transparent rounded-xl py-2.5 pl-10 pr-4 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-900 transition"
                     />
                   </div>
                 </div>
