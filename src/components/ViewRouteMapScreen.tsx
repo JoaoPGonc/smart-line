@@ -98,6 +98,14 @@ export default function ViewRouteMapScreen({ onNavigate, originCoords, destCoord
           <p className="text-[10px] text-slate-400 leading-normal">
             Toque nos pontos de parada azuis no mapa para ver detalhes ou inicie sua viagem.
           </p>
+          {/* BOTÃO INICIAR ROTA */}
+<button 
+  onClick={() => onNavigate(ScreenId.ActiveRoute)} 
+  className="w-full flex items-center justify-center gap-2 bg-[#1A254C] hover:bg-[#121A35] text-white py-3 px-4 rounded-lg font-bold text-sm mt-4"
+>
+  <Navigation2 className="w-4 h-4 fill-white stroke-none rotate-45" /> 
+  INICIAR ROTA
+</button>
         </div>
       </div>
     </div>
