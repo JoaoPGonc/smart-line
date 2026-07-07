@@ -70,7 +70,7 @@ service cloud.firestore {
       allow get: if isOwner(userId);
       allow create: if isOwner(userId) && isValidId(userId) && isValidUser(request.resource.data);
       allow update: if isOwner(userId) && isValidId(userId) && isValidUser(request.resource.data) && (
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['appointments', 'selectedAppointmentIndex', 'lastOriginCoords', 'lastDestCoords'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'name', 'email', 'cpf', 'plate', 'company', 'createdAt', 'appointments', 'selectedAppointmentIndex', 'lastOriginCoords', 'lastDestCoords'])
       );
       allow delete: if false;
     }

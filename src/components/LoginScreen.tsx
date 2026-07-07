@@ -186,15 +186,6 @@ export default function LoginScreen({ onNavigate, onLoginDemo }: LoginScreenProp
             </div>
           </form>
 
-          {/* Demo Offline Access Button */}
-          <button
-            type="button"
-            onClick={onLoginDemo}
-            disabled={loading}
-            className="w-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 tracking-wider text-xs transition uppercase disabled:opacity-50 cursor-pointer"
-          >
-            <ShieldCheck className="w-4 h-4 text-emerald-600" /> Acesso de Teste (Offline)
-          </button>
 
           {/* Create Account Link */}
           <div className="text-center pt-2">

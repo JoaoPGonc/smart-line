@@ -1,10 +1,9 @@
 {
-  "projectId": "gen-lang-client-0935278061",
-  "appId": "1:118754761321:web:4ac8eb51860a000be7e0f8",
-  "apiKey": "AIzaSyDbmpXOb-8EaLIcMIPcvLqcX5y40JDrezY",
-  "authDomain": "gen-lang-client-0935278061.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-remixremixsmartl-334811d0-858e-43e0-a301-9caea165cd18",
-  "storageBucket": "gen-lang-client-0935278061.firebasestorage.app",
-  "messagingSenderId": "118754761321",
+  "apiKey": "AIzaSyCLQ8fMLZSaOOHubWo9AlPNeBG7Y6-Fjic",
+  "authDomain": "smart-line-app-52467.firebaseapp.com",
+  "projectId": "smart-line-app-52467",
+  "storageBucket": "smart-line-app-52467.firebasestorage.app",
+  "messagingSenderId": "366764550786",
+  "appId": "1:366764550786:web:29caeefa2ffa005558e29b",
   "measurementId": ""
 }

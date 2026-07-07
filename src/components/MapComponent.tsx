@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import L from "leaflet";
-import { getStopsForRoute, snapToRoute } from "../utils/routeUtils";
+import { getStopsForRoute, snapToRoute, OsrmLeg } from "../utils/routeUtils";
 import { Compass } from "lucide-react";
 
 interface MapComponentProps {
@@ -14,6 +14,8 @@ interface MapComponentProps {
   showZoomControls?: boolean;
   showGpsIndicator?: boolean;
   stops?: Array<{ id: string; title: string; desc: string; lat: number; lng: number; time: string }> | null;
+  /** Called once OSRM route data has been loaded. Provides the polyline points and step data for GPS navigation. */
+  onRouteReady?: (routePoints: [number, number][], legs: OsrmLeg[]) => void;
 }
 
 export default function MapComponent({ 
@@ -26,7 +28,8 @@ export default function MapComponent({
   recenterTrigger = 0,
   showZoomControls = true,
   showGpsIndicator = true,
-  stops = null
+  stops = null,
+  onRouteReady
 }: MapComponentProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -245,7 +248,7 @@ export default function MapComponent({
     
     coordsList.push(`${endCoords.lng},${endCoords.lat}`);
     
-    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordsList.join(";")}?overview=full&geometries=geojson`;
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordsList.join(";")}?overview=full&geometries=geojson&steps=true`;
 
     fetch(osrmUrl)
       .then((res) => {
@@ -285,6 +288,12 @@ export default function MapComponent({
 
           // Draw stops snapped directly onto the calculated road route!
           drawStops(routePoints);
+
+          // Expose route data (polyline + OSRM steps) to parent for real GPS navigation
+          const legs: OsrmLeg[] = data.routes[0].legs ?? [];
+          if (onRouteReady) {
+            onRouteReady(routePoints, legs);
+          }
 
           // Place initial truck if active
           if (routeMode === "active") {

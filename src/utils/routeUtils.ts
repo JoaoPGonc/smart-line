@@ -7,6 +7,171 @@ export interface Stopover {
   lng: number;
 }
 
+// ─── OSRM Route Types ────────────────────────────────────────────────────────
+
+export interface OsrmManeuver {
+  type: string;        // "depart" | "turn" | "arrive" | "roundabout" | "merge" | "fork" | etc.
+  modifier?: string;   // "left" | "right" | "straight" | "slight left" | "slight right" | "sharp left" | "sharp right"
+  bearing_after?: number;
+  bearing_before?: number;
+  location?: [number, number]; // [lng, lat]
+}
+
+export interface OsrmStep {
+  name: string;           // Street name
+  distance: number;       // Metres to next step
+  duration: number;       // Seconds to next step
+  maneuver: OsrmManeuver;
+  geometry?: {
+    coordinates: [number, number][]; // [lng, lat]
+  };
+}
+
+export interface OsrmLeg {
+  distance: number;   // Total leg distance in metres
+  duration: number;   // Total leg duration in seconds
+  steps: OsrmStep[];
+}
+
+// ─── Real-GPS Progress Functions ──────────────────────────────────────────────
+
+/**
+ * Finds the index of the closest point on the polyline to the given GPS coords.
+ * Returns progress (0–1), closestIndex, and remaining distance in km.
+ */
+export const getProgressAlongRoute = (
+  gpsLat: number,
+  gpsLng: number,
+  routePoints: [number, number][]
+): { progress: number; closestIndex: number; distanceRemainingKm: number } => {
+  if (!routePoints || routePoints.length === 0) {
+    return { progress: 0, closestIndex: 0, distanceRemainingKm: 0 };
+  }
+
+  let minDist = Infinity;
+  let closestIndex = 0;
+
+  for (let i = 0; i < routePoints.length; i++) {
+    const d = getDistance(gpsLat, gpsLng, routePoints[i][0], routePoints[i][1]);
+    if (d < minDist) {
+      minDist = d;
+      closestIndex = i;
+    }
+  }
+
+  const progress = closestIndex / Math.max(routePoints.length - 1, 1);
+  const distanceRemainingKm = getDistanceAlongPolyline(routePoints, closestIndex, routePoints.length - 1);
+
+  return { progress, closestIndex, distanceRemainingKm };
+};
+
+/**
+ * Sum of haversine distances between consecutive points from `fromIndex` to `toIndex`.
+ */
+export const getDistanceAlongPolyline = (
+  points: [number, number][],
+  fromIndex: number,
+  toIndex: number
+): number => {
+  let total = 0;
+  const end = Math.min(toIndex, points.length - 1);
+  for (let i = fromIndex; i < end; i++) {
+    total += getDistance(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1]);
+  }
+  return total;
+};
+
+/**
+ * Given the current GPS position and all OSRM legs, find the index of the
+ * next upcoming maneuver step and the straight-line distance to it (metres).
+ */
+export const findCurrentStep = (
+  gpsLat: number,
+  gpsLng: number,
+  legs: OsrmLeg[]
+): { stepIndex: number; legIndex: number; step: OsrmStep | null; distanceToStepM: number } => {
+  if (!legs || legs.length === 0) {
+    return { stepIndex: 0, legIndex: 0, step: null, distanceToStepM: 0 };
+  }
+
+  let bestDist = Infinity;
+  let bestLegIndex = 0;
+  let bestStepIndex = 0;
+
+  legs.forEach((leg, li) => {
+    leg.steps.forEach((step, si) => {
+      const loc = step.maneuver?.location;
+      if (!loc) return;
+      const d = getDistance(gpsLat, gpsLng, loc[1], loc[0]); // loc = [lng, lat]
+      if (d < bestDist) {
+        bestDist = d;
+        bestLegIndex = li;
+        bestStepIndex = si;
+      }
+    });
+  });
+
+  // The "current" step is the closest one. The "next" instruction is the step AFTER it.
+  const leg = legs[bestLegIndex];
+  const nextStepIndex = bestStepIndex + 1;
+  const nextStep = leg.steps[nextStepIndex] ?? leg.steps[bestStepIndex] ?? null;
+  const nextLoc = nextStep?.maneuver?.location;
+  const distanceToNextM = nextLoc
+    ? getDistance(gpsLat, gpsLng, nextLoc[1], nextLoc[0]) * 1000
+    : bestDist * 1000;
+
+  return {
+    stepIndex: nextStepIndex,
+    legIndex: bestLegIndex,
+    step: nextStep,
+    distanceToStepM: distanceToNextM,
+  };
+};
+
+/**
+ * Convert OSRM maneuver type + modifier to a human-readable Portuguese instruction verb.
+ */
+export const getManeuverText = (step: OsrmStep): string => {
+  const type = step.maneuver.type;
+  const mod = step.maneuver.modifier || "";
+
+  if (type === "depart") return "Siga em frente";
+  if (type === "arrive") return "Chegando ao destino";
+  if (type === "roundabout" || type === "rotary") {
+    return "Entre na rotatória";
+  }
+  if (type === "end of road") {
+    return mod.includes("left") ? "Vire à esquerda" : "Vire à direita";
+  }
+  if (type === "fork") {
+    return mod.includes("left") ? "Mantenha-se à esquerda" : "Mantenha-se à direita";
+  }
+  if (type === "merge") {
+    return mod.includes("left") ? "Incorpore à esquerda" : "Incorpore à direita";
+  }
+  if (type === "turn" || type === "new name" || type === "continue") {
+    if (mod === "left") return "Vire à esquerda";
+    if (mod === "right") return "Vire à direita";
+    if (mod === "slight left") return "Vire levemente à esquerda";
+    if (mod === "slight right") return "Vire levemente à direita";
+    if (mod === "sharp left") return "Vire acentuadamente à esquerda";
+    if (mod === "sharp right") return "Vire acentuadamente à direita";
+    if (mod === "uturn") return "Faça o retorno";
+    return "Siga em frente";
+  }
+  return "Siga em frente";
+};
+
+/**
+ * Format a distance in metres to a readable string (e.g. "500 m", "1,2 km").
+ */
+export const formatDistance = (metres: number): string => {
+  if (metres < 1000) {
+    return `${Math.round(metres / 10) * 10} m`;
+  }
+  return `${(metres / 1000).toFixed(1).replace(".", ",")} km`;
+};
+
 export interface DriverNeeds {
   stopIntervalHours: number;
   requiresShower: boolean;
