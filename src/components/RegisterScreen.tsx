@@ -29,6 +29,7 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [registerLoading, setRegisterLoading] = useState(false);
 
+  // Substituído: handleManualRegister com debug de erros mais detalhados
   const handleManualRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!registerEmail || !registerPassword || !confirmPassword) {
@@ -55,14 +56,27 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
       }));
     } catch (err: any) {
       console.error("Erro no cadastro manual:", err);
+
+      // Mensagem amigável padrão
       let errMsg = "Ocorreu um erro ao criar a conta.";
-      if (err.code === "auth/email-already-in-use") {
+
+      // Tratamentos conhecidos
+      if (err && err.code === "auth/email-already-in-use") {
         errMsg = "Este endereço de e-mail já está em uso.";
-      } else if (err.code === "auth/invalid-email") {
+      } else if (err && err.code === "auth/invalid-email") {
         errMsg = "Formato de e-mail inválido.";
-      } else if (err.code === "auth/weak-password") {
+      } else if (err && err.code === "auth/weak-password") {
         errMsg = "A senha deve ser mais forte (mínimo de 6 caracteres).";
+      } else if (err && err.code) {
+        // Caso genérico com código do Firebase
+        errMsg = `${err.code}: ${err.message || "Erro no cadastro"}`;
+      } else if (err instanceof Error) {
+        errMsg = err.message;
+      } else {
+        errMsg = String(err);
       }
+
+      // Exibe mensagem detalhada na UI para debug (remover após correção)
       setError(errMsg);
     } finally {
       setRegisterLoading(false);
@@ -91,6 +105,7 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
     });
   };
 
+  // Substituído: handleGoogleConnect com debug de erro
   const handleGoogleConnect = async () => {
     setError("");
     setLoading(true);
@@ -105,7 +120,17 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
       }));
     } catch (err: any) {
       console.error("Erro ao autenticar com Google no cadastro:", err);
-      setError("Falha ao conectar com sua conta Google. Tente novamente.");
+
+      // Mensagem detalhada para debug
+      let errMsg = "Falha ao conectar com sua conta Google. Tente novamente.";
+      if (err && err.code) {
+        errMsg += ` (${err.code})`;
+      }
+      if (err && err.message) {
+        errMsg += ` — ${err.message}`;
+      }
+
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
@@ -145,8 +170,19 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
       }, 2000);
     } catch (err: any) {
       console.error("Erro ao salvar cadastro no Firestore:", err);
-      handleFirestoreError(err, OperationType.CREATE, `users/${currentUser.uid}`);
-      setError("Ocorreu um erro ao finalizar o seu cadastro.");
+
+      // Mostra uma mensagem amigável + detalhe técnico para debug
+      const detail = err && err.code ? `${err.code}: ${err.message}` :
+                     err instanceof Error ? err.message : String(err);
+      setError("Ocorreu um erro ao finalizar o seu cadastro. " + detail);
+
+      // Ainda registra o erro estruturado (mas não deixa a função lançar)
+      try {
+        handleFirestoreError(err, OperationType.CREATE, `users/${currentUser?.uid}`);
+      } catch (handlerErr) {
+        // handleFirestoreError lança — apenas logamos o resultado, não re-lançamos
+        console.warn("handleFirestoreError lançou ao logar o erro:", handlerErr);
+      }
     } finally {
       setLoading(false);
     }
@@ -327,7 +363,7 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
                       value={formData.name}
                       onChange={handleChange}
                       placeholder="Ex: João da Silva"
-                      className="w-full bg-slate-100 border border-transparent rounded-xl py-2.5 pl-10 pr-4 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-900 transition"
+                      className="w-full bg-slate-100 border border-transparent rounded-xl py-2.5 pl-10 pr-4 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:bo[...]
                     />
                   </div>
                 </div>
