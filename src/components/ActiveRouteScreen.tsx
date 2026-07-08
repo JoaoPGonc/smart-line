@@ -25,6 +25,7 @@ import {
   findCurrentStep,
   getManeuverText,
   formatDistance,
+  getDistance,
   OsrmLeg,
   OsrmStep,
 } from "../utils/routeUtils";
@@ -246,7 +247,7 @@ export default function ActiveRouteScreen({
   }, [routeLegs]);
 
   // ── Stops ──────────────────────────────────────────────────────────────────
-  const durMins = parseDurationMinutes(appointment?.estimatedDuration || "4h 35m");
+  const durMins = parseDurationMinutes(appointment?.drivingDuration || appointment?.estimatedDuration || "4h 35m");
   // useMemo garante que o array só muda quando os dados do agendamento mudam de verdade,
   // evitando que o MapComponent remonte o mapa a cada render por referência nova.
   const stops = useMemo(() => {
@@ -255,7 +256,7 @@ export default function ActiveRouteScreen({
     }
     return getStopsForRoute(
       appointment?.destination || "Porto de Tubarão",
-      (percent) => computeStopTime(appointment?.time || "11:30", durMins, percent)
+      (percent, index) => computeStopTime(appointment?.time || "11:30", durMins, percent, index)
     );
   }, [appointment?.customStops, appointment?.destination, appointment?.time, durMins]);
 
@@ -347,10 +348,33 @@ export default function ActiveRouteScreen({
       ? Math.round(distanceRemainingKm)
       : Math.max(0, Math.round(getHaversineTotal() * (1 - progress)));
 
+  let targetRemainingKm = effectiveRemainingKm;
+  let isNextTargetDest = true;
+  let targetTitle = "DESTINO";
+
+  if (activeStopIndex < stops.length) {
+    isNextTargetDest = false;
+    const stop = stops[activeStopIndex];
+    targetTitle = `PARADA ${activeStopIndex + 1}`;
+    if (userGpsCoords) {
+      targetRemainingKm = Math.round(getDistance(userGpsCoords.lat, userGpsCoords.lng, stop.lat, stop.lng) * 1.25);
+    } else if (originCoords) {
+      targetRemainingKm = Math.round(getDistance(originCoords.lat, originCoords.lng, stop.lat, stop.lng) * 1.25 * Math.max(0, 1 - progress));
+    }
+  }
+
+  const targetRemainingMinutesTotal = Math.round((targetRemainingKm / 65) * 60);
+  const targetRemainingHours = Math.floor(targetRemainingMinutesTotal / 60);
+  const targetRemainingMinutes = targetRemainingMinutesTotal % 60;
+  const targetFormattedDuration =
+    targetRemainingKm === 0
+      ? "0m"
+      : `${targetRemainingHours > 0 ? targetRemainingHours + "h " : ""}${targetRemainingMinutes}m`;
+
   const remainingMinutesTotal = Math.round((effectiveRemainingKm / 65) * 60);
   const remainingHours = Math.floor(remainingMinutesTotal / 60);
   const remainingMinutes = remainingMinutesTotal % 60;
-  const formattedDuration =
+  const formattedDurationTotal =
     effectiveRemainingKm === 0
       ? "0m"
       : `${remainingHours > 0 ? remainingHours + "h " : ""}${remainingMinutes}m`;
@@ -361,6 +385,9 @@ export default function ActiveRouteScreen({
     : appointment?.date
     ? formatDisplayDate(appointment.date)
     : "Hoje";
+
+  const targetEta = isNextTargetDest ? eta : stops[activeStopIndex].time || "--:--";
+  const targetDate = isNextTargetDest ? arrivalDate : (stops[activeStopIndex].date ? formatDisplayDate(stops[activeStopIndex].date) : "Hoje");
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -462,19 +489,26 @@ export default function ActiveRouteScreen({
 
           {/* Left: Remaining Distance */}
           <div className="space-y-1">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-              DISTÂNCIA RESTANTE
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest truncate" title={targetTitle}>
+              FALTA PARA: {targetTitle}
             </p>
             <div className="flex items-baseline gap-1">
               <span className="text-2xl font-black text-blue-950 tracking-tight">
-                {effectiveRemainingKm}
+                {targetRemainingKm}
               </span>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">KM</span>
             </div>
-            <p className="text-[10px] text-blue-900 font-bold flex items-center gap-1">
-              <span className={`inline-block w-1.5 h-1.5 rounded-full ${isUsingRealGps ? "bg-blue-600 animate-ping" : "bg-slate-400"}`} />
-              {isUsingRealGps ? "Navegando via GPS" : "Aguardando GPS…"}
-            </p>
+            <div className="text-[10px] space-y-0.5 font-bold mt-1 pt-1 border-t border-slate-100">
+              {!isNextTargetDest && (
+                <p className="text-slate-500 pb-1">
+                  Falta Destino: <span className="text-slate-800">{effectiveRemainingKm} KM</span>
+                </p>
+              )}
+              <p className="text-blue-900 flex items-center gap-1">
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${isUsingRealGps ? "bg-blue-600 animate-ping" : "bg-slate-400"}`} />
+                {isUsingRealGps ? "GPS Ativo" : "Buscando GPS..."}
+              </p>
+            </div>
           </div>
 
           {/* Divider */}
@@ -482,21 +516,29 @@ export default function ActiveRouteScreen({
 
           {/* Right: ETA */}
           <div className="space-y-1 pl-4">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
               TEMPO ESTIMADO
             </p>
             <div className="flex items-baseline gap-1">
               <span className="text-2xl font-black text-blue-950 tracking-tight">
-                {formattedDuration.split(" ")[0]}
+                {targetFormattedDuration.split(" ")[0]}
               </span>
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-                {formattedDuration.split(" ")[1] || ""}
+                {targetFormattedDuration.split(" ")[1] || ""}
               </span>
             </div>
-            <div className="text-[10px] space-y-0.5 font-bold">
-              <p className="text-slate-500">Chegada: {eta}</p>
-              <p className="text-[9px] text-slate-400">{arrivalDate}</p>
-              <p className="text-emerald-600 flex items-center gap-0.5">↘ Fluxo Verde no Porto</p>
+            <div className="text-[10px] space-y-0.5 font-bold mt-1 pt-1 border-t border-slate-100">
+              <p className="text-slate-500">
+                Chegada: <span className="text-slate-800">{targetEta}</span> <span className="text-[9px] text-slate-400 font-normal">({targetDate})</span>
+              </p>
+              {!isNextTargetDest && (
+                <p className="text-slate-500 pt-0.5">
+                  Destino: <span className="text-slate-800">{eta}</span> <span className="text-[9px] text-slate-400 font-normal">({arrivalDate})</span>
+                </p>
+              )}
+              {isNextTargetDest && (
+                <p className="text-emerald-600 flex items-center gap-0.5 pt-0.5">↘ Fluxo Verde no Porto</p>
+              )}
             </div>
           </div>
         </div>

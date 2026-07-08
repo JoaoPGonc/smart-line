@@ -83,7 +83,7 @@ export default function ScheduleConfirmedScreen({
                 <div className="text-right shrink-0">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">PREVISÃO</p>
                   <p className="text-xs font-black text-blue-950">{stop.time || "--:--"}</p>
-                  <p className="text-[9px] font-bold text-slate-500">{departureDate}</p>
+                  <p className="text-[9px] font-bold text-slate-500">{stop.date ? formatDisplayDate(stop.date) : departureDate}</p>
                 </div>
               </div>
             ))}

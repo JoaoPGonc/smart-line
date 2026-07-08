@@ -198,7 +198,11 @@ export default function ScheduleScreen({
     // Traffic delay: simulated delay based on travel distance
     const trafficDelayMins = Math.round(durationMins * 0.12); // 12% traffic delay
 
-    const totalLeadMins = durationMins + stopsDurationMins + trafficDelayMins;
+    const activeMins = durationMins + stopsDurationMins + trafficDelayMins;
+    const restsCount = Math.floor((Math.max(0, activeMins - 1)) / (8 * 60)); // 1 interjornada rest (11h) per 8h of work
+    const restDurationMins = restsCount * 11 * 60;
+    
+    const totalLeadMins = activeMins + restDurationMins;
 
     try {
       const [ah, am] = time.split(":").map(Number);
@@ -281,7 +285,7 @@ export default function ScheduleScreen({
           });
       },
       (error) => {
-        console.error("GPS Error:", error);
+        console.warn("GPS Location unavailable, using default fallback:", error?.message || error);
         // Fallback to a default location if GPS fails
         const fallbackLat = -20.2976;
         const fallbackLng = -40.2958;
@@ -420,7 +424,12 @@ export default function ScheduleScreen({
     const stopsCount = dynamicStops.length;
     const stopsDurationMins = stopsCount * 30;
     const trafficDelayMins = Math.round(durationMins * 0.12);
-    const totalLeadMins = durationMins + stopsDurationMins + trafficDelayMins;
+    
+    const activeMins = durationMins + stopsDurationMins + trafficDelayMins;
+    const restsCount = Math.floor((Math.max(0, activeMins - 1)) / (8 * 60)); // 1 interjornada rest (11h) per 8h of work
+    const restDurationMins = restsCount * 11 * 60;
+    
+    const totalLeadMins = activeMins + restDurationMins;
     const totalDurationHoursPart = Math.floor(totalLeadMins / 60);
     const totalDurationMinsPart = totalLeadMins % 60;
 
@@ -464,7 +473,7 @@ export default function ScheduleScreen({
       start,
       end,
       departureHourStr,
-      `${totalDurationHoursPart}h ${totalDurationMinsPart}m`,
+      `${hoursPart}h ${minsPart}m`,
       {
         stopIntervalHours,
         requiresShower,
@@ -473,6 +482,33 @@ export default function ScheduleScreen({
         requiresScale,
       }
     );
+
+    let currentDaysOffset = 0;
+    const [depH, depM] = departureHourStr.split(":").map(Number);
+    let previousTotalMins = depH * 60 + depM;
+
+    for (const stop of finalStops) {
+      if (stop.time) {
+        const [sh, sm] = stop.time.split(":").map(Number);
+        if (!isNaN(sh) && !isNaN(sm)) {
+          const stopMins = sh * 60 + sm;
+          if (stopMins < previousTotalMins) {
+            currentDaysOffset++;
+          }
+          if (currentDaysOffset > 0) {
+            const d = new Date(departureDateStr + "T12:00:00");
+            d.setDate(d.getDate() + currentDaysOffset);
+            const newY = d.getFullYear();
+            const newMo = String(d.getMonth() + 1).padStart(2, "0");
+            const newD = String(d.getDate()).padStart(2, "0");
+            stop.date = `${newY}-${newMo}-${newD}`;
+          } else {
+            stop.date = departureDateStr;
+          }
+          previousTotalMins = stopMins;
+        }
+      }
+    }
 
     let portAppId: string | null = null;
     if (auth.currentUser) {
@@ -487,6 +523,7 @@ export default function ScheduleScreen({
       arrivalDate: date,
       time: departureHourStr, // Saved as the suggested departure time!
       estimatedDuration: `${totalDurationHoursPart}h ${totalDurationMinsPart}m`,
+      drivingDuration: `${hoursPart}h ${minsPart}m`,
       estimatedArrival: arrivalHourStr, // Desired arrival time is stored here
       portQueueTime: queueTime,
       savingsMinutes: 40,

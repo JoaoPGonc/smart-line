@@ -25,6 +25,7 @@ export interface Appointment {
   arrivalDate?: string; // The user's provided target arrival date
   time: string; // Suggested departure time
   estimatedDuration: string; // e.g. "4h 35m"
+  drivingDuration?: string; // pure driving time without stops
   estimatedArrival: string; // Desired/estimated arrival time
   portQueueTime: string; // e.g. "1h 45m"
   savingsMinutes: number; // e.g. 40
@@ -42,6 +43,7 @@ export interface Appointment {
     title: string;
     desc: string;
     time: string;
+    date?: string;
     lat: number;
     lng: number;
   }>;

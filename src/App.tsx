@@ -410,6 +410,8 @@ export default function App() {
             appointments={appointments}
             selectedAppointmentIndex={selectedAppointmentIndex}
             onSelectAppointmentIndex={setSelectedAppointmentIndex}
+            originCoords={originCoords}
+            destCoords={destCoords}
           />
         );
       case ScreenId.ActiveRoute:

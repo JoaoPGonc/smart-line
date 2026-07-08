@@ -2,7 +2,7 @@ import { formatDisplayDate, formatAddress } from "../formatDateHelper";
 import React, { useState } from "react";
 import { ScreenId, Appointment } from "../types";
 import BottomNavigation from "./BottomNavigation";
-import { Clock, Hourglass, ArrowRight, CheckCircle2, ShieldAlert, CheckSquare, Square, Navigation2, Check, Landmark, MapPin, RefreshCw, Calendar } from "lucide-react";
+import { Clock, Hourglass, ArrowRight, CheckCircle2, ShieldAlert, CheckSquare, Square, Navigation2, Check, Landmark, MapPin, RefreshCw, Calendar, ExternalLink } from "lucide-react";
 import { getStopsForRoute, parseDurationMinutes, computeStopTime } from "../utils/routeUtils";
 
 interface RouteOverviewScreenProps {
@@ -12,6 +12,8 @@ interface RouteOverviewScreenProps {
   appointments: Appointment[];
   selectedAppointmentIndex: number | null;
   onSelectAppointmentIndex: (index: number) => void;
+  originCoords?: { lat: number; lng: number; name?: string } | null;
+  destCoords?: { lat: number; lng: number; name?: string } | null;
 }
 
 export default function RouteOverviewScreen({
@@ -21,6 +23,8 @@ export default function RouteOverviewScreen({
   appointments,
   selectedAppointmentIndex,
   onSelectAppointmentIndex,
+  originCoords,
+  destCoords,
 }: RouteOverviewScreenProps) {
 
   // 1. Pending view when no appointment is booked yet
@@ -60,7 +64,7 @@ export default function RouteOverviewScreen({
   const destination = appointment?.destination
     ? formatAddress(appointment.destination.split("-")[0]?.trim() || appointment.destination, "Porto de Tubarão")
     : "Porto de Tubarão";
-  const duration = appointment?.estimatedDuration || "4h 35m";
+  const duration = appointment?.drivingDuration || appointment?.estimatedDuration || "4h 35m";
   const departure = appointment?.time || "11:30";
   const queue = appointment?.portQueueTime || "1h 45m";
   const eta = appointment?.estimatedArrival || "16:05";
@@ -71,7 +75,7 @@ export default function RouteOverviewScreen({
   const durMins = parseDurationMinutes(duration);
   const stops = appointment?.customStops && appointment.customStops.length > 0
     ? appointment.customStops
-    : getStopsForRoute(destination, (percent) => computeStopTime(departure, durMins, percent));
+    : getStopsForRoute(destination, (percent, index) => computeStopTime(departure, durMins, percent, index));
 
   // Calculate remaining stops (only up to the number of generated stops)
   const uncheckedCount = stops.filter((_, idx) => !checkedStops[idx]).length;
@@ -215,9 +219,14 @@ export default function RouteOverviewScreen({
                       </h4>
                       <p className={`text-[10px] mt-0.5 leading-snug transition-all ${isChecked ? "text-slate-500" : "text-slate-400"}`}>{stop.desc}</p>
                     </div>
-                    <span className={`text-xs font-black font-mono px-1.5 py-0.5 rounded-md border transition-all ${isChecked ? "text-slate-700 bg-slate-100 border-slate-200/50" : "text-slate-400 bg-slate-50 border-slate-100"}`}>
-                      {stop.time}
-                    </span>
+                    <div className="text-right shrink-0 flex flex-col items-end">
+                      <span className={`text-xs font-black font-mono px-1.5 py-0.5 rounded-md border transition-all ${isChecked ? "text-slate-700 bg-slate-100 border-slate-200/50" : "text-slate-400 bg-slate-50 border-slate-100"}`}>
+                        {stop.time}
+                      </span>
+                      <span className="text-[8px] font-bold text-slate-400 mt-1 uppercase tracking-wider">
+                        {stop.date ? formatDisplayDate(stop.date) : ""}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );

@@ -3,6 +3,7 @@ import { ScreenId, Appointment } from "../types";
 import MapComponent from "./MapComponent";
 import { ArrowLeft, Compass, Navigation2 } from "lucide-react";
 import { formatAddress } from "../formatDateHelper";
+import { getStopsForRoute, parseDurationMinutes, computeStopTime } from "../utils/routeUtils";
 
 interface ViewRouteMapScreenProps {
   onNavigate: (screen: ScreenId) => void;
@@ -34,6 +35,13 @@ export default function ViewRouteMapScreen({ onNavigate, originCoords, destCoord
     ? formatAddress(appointment.destination.split("-")[0]?.trim() || appointment.destination, "Porto de Tubarão")
     : "Porto de Tubarão";
 
+  const duration = appointment?.drivingDuration || appointment?.estimatedDuration || "4h 35m";
+  const departure = appointment?.time || "11:30";
+  const durMins = parseDurationMinutes(duration);
+  const stops = appointment?.customStops && appointment.customStops.length > 0
+    ? appointment.customStops
+    : getStopsForRoute(destName, (percent, index) => computeStopTime(departure, durMins, percent, index));
+
   return (
     <div id="view-route-map" className="relative h-full bg-slate-950 flex flex-col justify-between font-sans">
       
@@ -46,7 +54,7 @@ export default function ViewRouteMapScreen({ onNavigate, originCoords, destCoord
           recenterTrigger={recenterCount} 
           showZoomControls={false}
           showGpsIndicator={false}
-          stops={appointment?.customStops}
+          stops={stops}
         />
       </div>
 
@@ -104,7 +112,7 @@ export default function ViewRouteMapScreen({ onNavigate, originCoords, destCoord
           {/* BOTÃO INICIAR ROTA */}
 <button 
   onClick={() => onNavigate(ScreenId.ActiveRoute)} 
-  className="w-full flex items-center justify-center gap-2 bg-[#1A254C] hover:bg-[#121A35] text-white py-3 px-4 rounded-lg font-bold text-sm mt-4"
+  className="w-full flex items-center justify-center gap-2 bg-[#1A254C] hover:bg-[#121A35] text-white py-3 px-4 rounded-lg font-bold text-sm mt-4 cursor-pointer"
 >
   <Navigation2 className="w-4 h-4 fill-white stroke-none rotate-45" /> 
   INICIAR ROTA

@@ -3,6 +3,7 @@ export interface Stopover {
   title: string;
   desc: string;
   time: string;
+  date?: string;
   lat: number;
   lng: number;
 }
@@ -461,7 +462,7 @@ export const getDistance = (lat1: number, lng1: number, lat2: number, lng2: numb
   return R * c;
 };
 
-export const getStopsForRoute = (destination: string, getStopTime: (percent: number) => string): Stopover[] => {
+export const getStopsForRoute = (destination: string, getStopTime: (percent: number, index: number) => string): Stopover[] => {
   const destLower = (destination || "").toLowerCase();
   
   if (destLower.includes("santos")) {
@@ -470,7 +471,7 @@ export const getStopsForRoute = (destination: string, getStopTime: (percent: num
         id: "graal-petropen",
         title: "Graal Petropen (BR-116)",
         desc: "Restaurante amplo, pátio iluminado e banho de motorista.",
-        time: getStopTime(0.28),
+        time: getStopTime(0.28, 0),
         lat: -24.4815,
         lng: -47.8284,
       },
@@ -478,7 +479,7 @@ export const getStopsForRoute = (destination: string, getStopTime: (percent: num
         id: "shell-cubatao",
         title: "Posto Shell Cubatão (SP-055)",
         desc: "Balança de pesagem e segurança especializada de cargas.",
-        time: getStopTime(0.70),
+        time: getStopTime(0.70, 1),
         lat: -23.8825,
         lng: -46.4251,
       },
@@ -486,7 +487,7 @@ export const getStopsForRoute = (destination: string, getStopTime: (percent: num
         id: "triagem-anchieta",
         title: "Pátio Triagem Anchieta (Santos)",
         desc: "Local oficial de parada prévia regulada por QR Code.",
-        time: getStopTime(0.90),
+        time: getStopTime(0.90, 2),
         lat: -23.9421,
         lng: -46.3684,
       },
@@ -497,7 +498,7 @@ export const getStopsForRoute = (destination: string, getStopTime: (percent: num
         id: "posto-alpino",
         title: "Posto Alpino II (BR-277)",
         desc: "Churrascaria, diesel S10 aditivado e banheiros gratuitos.",
-        time: getStopTime(0.28),
+        time: getStopTime(0.28, 0),
         lat: -25.4372,
         lng: -49.5248,
       },
@@ -505,7 +506,7 @@ export const getStopsForRoute = (destination: string, getStopTime: (percent: num
         id: "prf-paranagua",
         title: "Posto PRF Paranaguá (BR-277)",
         desc: "Monitoramento e apoio operacional da concessionária.",
-        time: getStopTime(0.70),
+        time: getStopTime(0.70, 1),
         lat: -25.5684,
         lng: -48.6112,
       },
@@ -513,7 +514,7 @@ export const getStopsForRoute = (destination: string, getStopTime: (percent: num
         id: "ecopatio",
         title: "Ecopátio Triagem (Paranaguá)",
         desc: "Triagem automatizada integrada com controle portuário.",
-        time: getStopTime(0.90),
+        time: getStopTime(0.90, 2),
         lat: -25.5532,
         lng: -48.5671,
       },
@@ -525,7 +526,7 @@ export const getStopsForRoute = (destination: string, getStopTime: (percent: num
         id: "posto-gigante",
         title: "Posto Gigante II (Ibiraçu)",
         desc: "Restaurante completo, estacionamento de carga e combustíveis.",
-        time: getStopTime(0.28),
+        time: getStopTime(0.28, 0),
         lat: -19.8224,
         lng: -40.2741,
       },
@@ -533,7 +534,7 @@ export const getStopsForRoute = (destination: string, getStopTime: (percent: num
         id: "posto-prf-es",
         title: "Posto PRF 104 (Serra)",
         desc: "Base operacional da PRF - Ponto seguro de parada.",
-        time: getStopTime(0.70),
+        time: getStopTime(0.70, 1),
         lat: -20.1264,
         lng: -40.3082,
       },
@@ -541,7 +542,7 @@ export const getStopsForRoute = (destination: string, getStopTime: (percent: num
         id: "parada-porto-es",
         title: "Parada do Pátio (Vitória)",
         desc: "Triagem de apoio e alimentação rápida antes do porto.",
-        time: getStopTime(0.90),
+        time: getStopTime(0.90, 2),
         lat: -20.2721,
         lng: -40.2514,
       },
@@ -563,12 +564,23 @@ export const parseDurationMinutes = (durStr: string) => {
   return total;
 };
 
-export const computeStopTime = (startTime: string, durMins: number, percent: number) => {
+export const computeStopTime = (startTime: string, durMins: number, percent: number, stopIndex?: number) => {
   try {
     const [h, m] = startTime.split(":").map(Number);
     if (!isNaN(h) && !isNaN(m)) {
-      const offset = Math.round(durMins * percent);
+      const drivingMins = durMins * percent;
+      const trafficMins = Math.round(drivingMins * 0.12);
+      
+      const index = stopIndex !== undefined ? stopIndex : Math.max(0, Math.floor(percent * 3) - 1);
+      const previousStopsMins = index * 30;
+      
+      const activeMins = drivingMins + trafficMins + previousStopsMins;
+      const restsCount = Math.floor((Math.max(0, activeMins - 1)) / (8 * 60));
+      const restMins = restsCount * 11 * 60;
+      
+      const offset = Math.round(activeMins + restMins);
       const total = h * 60 + m + offset;
+      
       const resultH = Math.floor(total / 60) % 24;
       const resultM = total % 60;
       return `${resultH.toString().padStart(2, "0")}:${resultM.toString().padStart(2, "0")}`;
@@ -598,7 +610,7 @@ export const calculateDynamicStops = (
 
   if (candidates.length === 0) {
     // Fallback if corridor is empty: just return some general stops
-    return getStopsForRoute(end.lat.toString(), (percent) => computeStopTime(departureTime, totalDurationMins, percent));
+    return getStopsForRoute(end.lat.toString(), (percent, index) => computeStopTime(departureTime, totalDurationMins, percent, index));
   }
 
   // 2. Score each candidate based on truckers facility needs
@@ -713,7 +725,7 @@ export const calculateDynamicStops = (
   // 5. Calculate estimated arrival times at each selected stop
   return selectedStops.map((stop, index) => {
     const distFraction = getDistance(start.lat, start.lng, stop.lat, stop.lng) / totalDist;
-    const stopTime = computeStopTime(departureTime, totalDurationMins, distFraction);
+    const stopTime = computeStopTime(departureTime, totalDurationMins, distFraction, index);
     return {
       ...stop,
       time: stopTime
@@ -741,7 +753,7 @@ export const snapToRoute = (
   return closestPoint;
 };
 
-// Fetch real points of interest (gas stations) along the route dynamically using OpenStreetMap's Overpass API
+// Fetch real points of interest (gas stations) along the route dynamically using OSRM + OpenStreetMap Overpass
 export const fetchDynamicStopsFromOSM = async (
   start: { lat: number; lng: number },
   end: { lat: number; lng: number },
@@ -749,7 +761,6 @@ export const fetchDynamicStopsFromOSM = async (
   estimatedDuration: string,
   needs: DriverNeeds
 ): Promise<Stopover[]> => {
-  const totalDist = getDistance(start.lat, start.lng, end.lat, end.lng);
   const totalDurationMins = parseDurationMinutes(estimatedDuration);
   const durationHours = totalDurationMins / 60;
 
@@ -769,109 +780,128 @@ export const fetchDynamicStopsFromOSM = async (
   const stops: Stopover[] = [];
 
   try {
-    // We will query fuel stations near the planned intervals (e.g. at 33% and 66% along the route)
+    // 1. Fetch real route geometry from OSRM
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?geometries=geojson&overview=full`;
+    const osrmRes = await fetch(osrmUrl);
+    if (!osrmRes.ok) throw new Error("OSRM API error");
+    const osrmData = await osrmRes.json();
+    
+    let routeCoords = osrmData.routes?.[0]?.geometry?.coordinates;
+    if (!routeCoords || routeCoords.length < 2) throw new Error("Invalid OSRM geometry");
+
+    // 2. Calculate cumulative distances along the route
+    const cumulativeDistances: number[] = [0];
+    let totalDist = 0;
+    for (let i = 1; i < routeCoords.length; i++) {
+      const p1 = { lat: routeCoords[i-1][1], lng: routeCoords[i-1][0] };
+      const p2 = { lat: routeCoords[i][1], lng: routeCoords[i][0] };
+      const d = getDistance(p1.lat, p1.lng, p2.lat, p2.lng);
+      totalDist += d;
+      cumulativeDistances.push(totalDist);
+    }
+
+    // 3. Find stops
     for (let i = 1; i <= targetStopsCount; i++) {
       const fraction = i / (targetStopsCount + 1);
-      const targetLat = start.lat + (end.lat - start.lat) * fraction;
-      const targetLng = start.lng + (end.lng - start.lng) * fraction;
+      const targetDist = totalDist * fraction;
+      
+      // Find the coordinate at this distance
+      let targetLat = start.lat;
+      let targetLng = start.lng;
+      let targetIndex = 0;
+      for (let j = 1; j < cumulativeDistances.length; j++) {
+        if (cumulativeDistances[j] >= targetDist) {
+          const ratio = (targetDist - cumulativeDistances[j-1]) / (cumulativeDistances[j] - cumulativeDistances[j-1]);
+          const p1 = routeCoords[j-1];
+          const p2 = routeCoords[j];
+          targetLng = p1[0] + (p2[0] - p1[0]) * ratio;
+          targetLat = p1[1] + (p2[1] - p1[1]) * ratio;
+          targetIndex = j;
+          break;
+        }
+      }
 
+      // Query Overpass for fuel stations near this coordinate
       const overpassUrl = "https://overpass-api.de/api/interpreter";
-      // Find fuel stations within a 15km radius of each computed midpoint
-      const query = `[out:json][timeout:8];node["amenity"="fuel"](around:15000,${targetLat},${targetLng});out body 6;`;
+      const query = `[out:json][timeout:8];node["amenity"="fuel"](around:5000,${targetLat},${targetLng});out body 6;`;
 
-      const response = await fetch(overpassUrl, {
-        method: "POST",
-        body: query,
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      });
-
-      if (!response.ok) throw new Error("Overpass API error");
-      const data = await response.json();
-
-      if (data.elements && data.elements.length > 0) {
-        // Map elements and score them based on driver needs
-        const candidates = data.elements.map((el: any) => {
-          const tags = el.tags || {};
-          const rawName = tags.name || tags.brand || "Posto de Combustível";
-          const brand = tags.brand || "";
-
-          const hasShower =
-            tags.shower === "yes" ||
-            tags.bath === "yes" ||
-            tags.toilets === "yes" ||
-            rawName.toLowerCase().includes("graal") ||
-            rawName.toLowerCase().includes("posto") ||
-            rawName.toLowerCase().includes("petrobras") ||
-            rawName.toLowerCase().includes("ipiranga") ||
-            rawName.toLowerCase().includes("shell");
-
-          const hasMeal =
-            tags.restaurant === "yes" ||
-            tags.food === "yes" ||
-            tags.cafe === "yes" ||
-            tags.amenity === "restaurant" ||
-            rawName.toLowerCase().includes("graal") ||
-            rawName.toLowerCase().includes("posto") ||
-            rawName.toLowerCase().includes("restaurante");
-
-          const hasSecurity =
-            tags.security === "yes" ||
-            tags.parking === "yes" ||
-            tags.secure === "yes" ||
-            rawName.toLowerCase().includes("graal") ||
-            true; // large highway fuel stations in Brazil generally have parking & security
-
-          const hasScale =
-            tags.scale === "yes" ||
-            tags.weighbridge === "yes" ||
-            rawName.toLowerCase().includes("balança") ||
-            rawName.toLowerCase().includes("balanca");
-
-          let score = 0;
-          if (needs.requiresShower && hasShower) score += 3;
-          if (needs.requiresMeal && hasMeal) score += 3;
-          if (needs.requiresSecurity && hasSecurity) score += 3;
-          if (needs.requiresScale && hasScale) score += 3;
-
-          // Penalty for distance from target partition midpoint
-          const distToTarget = getDistance(targetLat, targetLng, el.lat, el.lon);
-          score -= distToTarget * 0.15;
-
-          return {
-            id: `osm-fuel-${el.id}`,
-            title: brand && !rawName.includes(brand) ? `${rawName} (${brand})` : rawName,
-            desc: `Posto real mapeado via OpenStreetMap. Apoio para caminhoneiros com estacionamento de carga. Chuveiros: ${
-              hasShower ? "Sim" : "Não"
-            } | Alimentação: ${hasMeal ? "Sim" : "Não"}.`,
-            lat: el.lat,
-            lng: el.lon,
-            score,
-            time: "",
-          };
+      let foundStop = false;
+      try {
+        const response = await fetch(overpassUrl, {
+          method: "POST",
+          body: query,
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
         });
 
-        // Sort by score
-        candidates.sort((a: any, b: any) => b.score - a.score);
-        const bestCandidate = candidates[0];
+        if (response.ok) {
+          const data = await response.json();
+          if (data.elements && data.elements.length > 0) {
+            const candidates = data.elements.map((el: any) => {
+              const tags = el.tags || {};
+              const rawName = tags.name || tags.brand || "Posto de Combustível";
+              const brand = tags.brand || "";
 
-        bestCandidate.time = computeStopTime(departureTime, totalDurationMins, fraction);
-        stops.push({
-          id: bestCandidate.id,
-          title: bestCandidate.title,
-          desc: bestCandidate.desc,
-          time: bestCandidate.time,
-          lat: bestCandidate.lat,
-          lng: bestCandidate.lng,
-        });
-      } else {
-        // Fallback for this specific midpoint if Overpass returned nothing
-        const stopTime = computeStopTime(departureTime, totalDurationMins, fraction);
+              const hasShower = tags.shower === "yes" || tags.bath === "yes" || tags.toilets === "yes" || !!rawName.toLowerCase().match(/(graal|posto|petrobras|ipiranga|shell)/);
+              const hasMeal = tags.restaurant === "yes" || tags.food === "yes" || tags.cafe === "yes" || !!rawName.toLowerCase().match(/(graal|posto|restaurante)/);
+              const hasSecurity = tags.security === "yes" || tags.parking === "yes" || tags.secure === "yes" || true;
+              const hasScale = tags.scale === "yes" || tags.weighbridge === "yes" || rawName.toLowerCase().includes("balança");
+
+              let score = 0;
+              if (needs.requiresShower && hasShower) score += 3;
+              if (needs.requiresMeal && hasMeal) score += 3;
+              if (needs.requiresSecurity && hasSecurity) score += 3;
+              if (needs.requiresScale && hasScale) score += 3;
+
+              const distToTarget = getDistance(targetLat, targetLng, el.lat, el.lon);
+              
+              let minRouteDist = Infinity;
+              const startIndex = Math.max(0, targetIndex - 200);
+              const endIndex = Math.min(routeCoords.length, targetIndex + 200);
+              for (let k = startIndex; k < endIndex; k++) {
+                const p = routeCoords[k];
+                const d = getDistance(p[1], p[0], el.lat, el.lon);
+                if (d < minRouteDist) minRouteDist = d;
+              }
+
+              score -= minRouteDist * 2.0; 
+              score -= distToTarget * 0.05;
+
+              return {
+                id: `osm-fuel-${el.id}`,
+                title: brand && !rawName.includes(brand) ? `${rawName} (${brand})` : rawName,
+                desc: `Posto real mapeado via satélite. Chuveiros: ${hasShower ? "Sim" : "Não"} | Alimentação: ${hasMeal ? "Sim" : "Não"}.`,
+                lat: el.lat,
+                lng: el.lon,
+                score,
+                time: "",
+              };
+            });
+
+            candidates.sort((a: any, b: any) => b.score - a.score);
+            const bestCandidate = candidates[0];
+
+            bestCandidate.time = computeStopTime(departureTime, totalDurationMins, fraction, i - 1);
+            stops.push({
+              id: bestCandidate.id,
+              title: bestCandidate.title,
+              desc: bestCandidate.desc,
+              time: bestCandidate.time,
+              lat: bestCandidate.lat,
+              lng: bestCandidate.lng,
+            });
+            foundStop = true;
+          }
+        }
+      } catch (e) {
+        console.warn("Overpass query failed for stop " + i, e);
+      }
+
+      if (!foundStop) {
+        const stopTime = computeStopTime(departureTime, totalDurationMins, fraction, i - 1);
         stops.push({
           id: `osm-fallback-${i}`,
-          title: `Posto Rodoviário (Ponto ${i})`,
-          desc: "Ponto de parada sugerido via cálculo de intervalo de condução da Lei 13.103.",
+          title: `Ponto Rodoviário (${Math.round(fraction*100)}% da rota)`,
+          desc: "Ponto de parada sugerido calculado ao longo da rota real da viagem.",
           time: stopTime,
           lat: targetLat,
           lng: targetLng,
@@ -879,11 +909,24 @@ export const fetchDynamicStopsFromOSM = async (
       }
     }
   } catch (err) {
-    console.warn("Error fetching real stops from OSM Overpass, using robust local geometry fallback:", err);
-    // Return standard local offline calculated stops (highly stable fallback)
+    console.warn("Error fetching real route from OSRM, using robust local geometry fallback:", err);
     return calculateDynamicStops(start, end, departureTime, estimatedDuration, needs);
   }
 
   return stops;
+};
+
+export const addMinutesToTime = (timeStr: string, addMins: number): string => {
+  try {
+    const [h, m] = timeStr.split(":").map(Number);
+    if (!isNaN(h) && !isNaN(m)) {
+      let total = h * 60 + m + addMins;
+      while (total < 0) total += 24 * 60;
+      const resultH = Math.floor(total / 60) % 24;
+      const resultM = total % 60;
+      return `${resultH.toString().padStart(2, "0")}:${resultM.toString().padStart(2, "0")}`;
+    }
+  } catch (e) {}
+  return timeStr;
 };
 
