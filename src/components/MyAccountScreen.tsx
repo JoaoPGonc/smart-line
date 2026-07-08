@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ScreenId, Appointment } from "../types";
+import { formatAddress } from "../formatDateHelper";
 import BottomNavigation from "./BottomNavigation";
 import { User, Settings, Bell, Moon, Languages, HelpCircle, FileText, LogOut, ChevronRight, Check, History, Edit3 } from "lucide-react";
 import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
@@ -12,9 +13,13 @@ interface MyAccountScreenProps {
   onToggleDarkMode: () => void;
   onLogout: () => void;
   appointments?: Appointment[];
+  onUpdateAppointmentStatus?: (index: number, status: Appointment["status"]) => void;
 }
 
-export default function MyAccountScreen({ onNavigate, isDarkMode, onToggleDarkMode, onLogout, appointments }: MyAccountScreenProps) {
+export default function MyAccountScreen({ onNavigate, isDarkMode, onToggleDarkMode, onLogout, appointments, onUpdateAppointmentStatus }: MyAccountScreenProps) {
+  const [showAllTrips, setShowAllTrips] = useState(false);
+  const [expandedTripIndex, setExpandedTripIndex] = useState<number | null>(null);
+
   const [profile, setProfile] = useState<{
     name: string;
     cpf: string;
@@ -68,32 +73,31 @@ export default function MyAccountScreen({ onNavigate, isDarkMode, onToggleDarkMo
     onLogout();
   };
 
-  const allAppointments = [
-    ...(appointments || []).map(a => ({
-      date: a.date,
-      status: a.status === "confirmed" ? "AGENDADO" : "PENDENTE",
-      origin: a.origin,
-      destination: a.destination,
-      time: a.time,
-      estimatedArrival: a.estimatedArrival
-    })),
-    {
-      date: "2026-07-02",
-      status: "CONCLUÍDO",
-      origin: "Belo Horizonte, MG",
-      destination: "Porto de Tubarão, ES",
-      time: "08:30",
-      estimatedArrival: "16:00"
-    },
-    {
-      date: "2026-06-25",
-      status: "CONCLUÍDO",
-      origin: "São Paulo, SP",
-      destination: "Porto de Santos, SP",
-      time: "05:00",
-      estimatedArrival: "09:00"
-    }
-  ];
+  const allAppointments = (appointments || []).map((a, idx) => ({
+    originalIndex: idx,
+    date: a.date,
+    status: a.status,
+    origin: a.origin,
+    destination: a.destination,
+    time: a.time,
+    estimatedArrival: a.estimatedArrival
+  })).reverse(); // Newest first
+
+  // Active: trips that haven't been finalized yet (confirmed / pending)
+  const activeAppointments = allAppointments.filter(a => a.status === "confirmed" || a.status === "pending");
+  
+  // History: only trips that were actually taken (completed, delayed, canceled)
+  const historyAppointments = allAppointments.filter(a => a.status === "completed" || a.status === "delayed" || a.status === "canceled");
+  
+  const visibleHistory = showAllTrips ? historyAppointments : historyAppointments.slice(0, 3);
+
+  const statusConfig = {
+    "confirmed": { label: "AGENDADO", classes: "bg-emerald-50 text-emerald-600 border-emerald-100" },
+    "pending": { label: "PENDENTE", classes: "bg-blue-50 text-blue-600 border-blue-100" },
+    "completed": { label: "CONCLUÍDO", classes: "bg-slate-100 text-slate-600 border-slate-200" },
+    "delayed": { label: "ATRASADO", classes: "bg-amber-50 text-amber-600 border-amber-100" },
+    "canceled": { label: "CANCELADO", classes: "bg-red-50 text-red-600 border-red-100" }
+  } as const;
 
   return (
     <div id="my-account" className="flex flex-col h-full bg-slate-50 overflow-hidden font-sans justify-between">
@@ -165,42 +169,108 @@ export default function MyAccountScreen({ onNavigate, isDarkMode, onToggleDarkMo
             </div>
           </div>
 
+          {/* Section: Viagens Ativas */}
+          {activeAppointments.length > 0 && (
+            <div className="space-y-2.5">
+              <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block"></span> VIAGENS ATIVAS
+              </h4>
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-3xs divide-y divide-slate-50 overflow-hidden">
+                {activeAppointments.map((app) => {
+                  const config = statusConfig[app.status as keyof typeof statusConfig];
+                  return (
+                    <div key={app.originalIndex} className="relative">
+                      <div
+                        className="p-4 space-y-2 hover:bg-slate-50/50 transition duration-150 cursor-pointer"
+                        onClick={() => setExpandedTripIndex(expandedTripIndex === app.originalIndex ? null : app.originalIndex)}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="text-[9px] font-bold text-slate-400 font-mono">{app.date}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[8px] text-slate-400 font-medium">toque para ações</span>
+                            <span className={`text-[8px] font-black tracking-wider px-2 py-0.5 rounded-full uppercase border ${config.classes}`}>
+                              {config.label}
+                            </span>
+                          </div>
+                        </div>
+                        <h5 className="text-xs font-black text-slate-700 line-clamp-1">
+                          {formatAddress(app.origin, "Origem")} → {formatAddress(app.destination, "Destino")}
+                        </h5>
+                        <p className="text-[10px] text-slate-400 font-medium">
+                          Saída: {app.time} • Chegada: {app.estimatedArrival || "--"}
+                        </p>
+                      </div>
+
+                      {/* Expand: finalization actions */}
+                      {expandedTripIndex === app.originalIndex && onUpdateAppointmentStatus && (
+                        <div className="px-4 pb-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
+                          <p className="w-full text-[9px] text-slate-400 font-semibold mb-1">Como foi essa viagem?</p>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onUpdateAppointmentStatus(app.originalIndex, "completed"); setExpandedTripIndex(null); }}
+                            className="bg-emerald-500 text-white hover:bg-emerald-600 px-3 py-2 rounded-xl text-[9px] font-black transition flex-1 text-center shadow-sm active:scale-95">
+                            ✓ Concluída no prazo
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onUpdateAppointmentStatus(app.originalIndex, "delayed"); setExpandedTripIndex(null); }}
+                            className="bg-amber-500 text-white hover:bg-amber-600 px-3 py-2 rounded-xl text-[9px] font-black transition flex-1 text-center shadow-sm active:scale-95">
+                            ⏱ Com atraso
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onUpdateAppointmentStatus(app.originalIndex, "canceled"); setExpandedTripIndex(null); }}
+                            className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-2 rounded-xl text-[9px] font-black transition w-full text-center border border-red-200 active:scale-95">
+                            ✕ Cancelar / Não realizada
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Section: Histórico de Viagens */}
           <div className="space-y-2.5">
             <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest pl-1 flex items-center gap-1.5">
               <History className="w-3 h-3 text-slate-400" /> HISTÓRICO DE VIAGENS
             </h4>
 
-            {allAppointments.length > 0 ? (
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-3xs divide-y divide-slate-50 overflow-hidden">
-                {allAppointments.map((app, idx) => (
-                  <div key={idx} className="p-4 space-y-2 hover:bg-slate-50/50 transition duration-150">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[9px] font-bold text-slate-400 font-mono">{app.date}</span>
-                      <span className={`text-[8px] font-black tracking-wider px-2 py-0.5 rounded-full uppercase border ${
-                        app.status === "AGENDADO" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-                        app.status === "CONCLUÍDO" ? "bg-slate-100 text-slate-600 border-slate-200" :
-                        "bg-amber-50 text-amber-600 border-amber-100"
-                      }`}>
-                        {app.status}
-                      </span>
-                    </div>
-                    <div>
-                      <h5 className="text-xs font-black text-slate-700">
-                        {app.origin?.split(",")[0]} → {app.destination?.split(",")[0] || app.destination}
-                      </h5>
-                      <p className="text-[10px] text-slate-400 mt-1 font-medium">
-                        Horário: {app.time} • Chegada Estimada: {app.estimatedArrival || "--"}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+            {historyAppointments.length > 0 ? (
+              <div className="space-y-3">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-3xs divide-y divide-slate-50 overflow-hidden">
+                  {visibleHistory.map((app) => {
+                    const config = statusConfig[app.status as keyof typeof statusConfig];
+                    return (
+                      <div key={app.originalIndex} className="p-4 space-y-2 hover:bg-slate-50/50 transition duration-150">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[9px] font-bold text-slate-400 font-mono">{app.date}</span>
+                          <span className={`text-[8px] font-black tracking-wider px-2 py-0.5 rounded-full uppercase border ${config.classes}`}>
+                            {config.label}
+                          </span>
+                        </div>
+                        <h5 className="text-xs font-black text-slate-700 line-clamp-1">
+                          {formatAddress(app.origin, "Origem")} → {formatAddress(app.destination, "Destino")}
+                        </h5>
+                        <p className="text-[10px] text-slate-400 font-medium">
+                          Saída: {app.time} • Chegada: {app.estimatedArrival || "--"}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+                {historyAppointments.length > 3 && (
+                  <button
+                    onClick={() => setShowAllTrips(!showAllTrips)}
+                    className="w-full text-center py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold text-[10px] uppercase tracking-widest rounded-xl transition border border-slate-200/50 active:scale-98">
+                    {showAllTrips ? "Ocultar Anteriores" : `Ver mais (${historyAppointments.length - 3})`}
+                  </button>
+                )}
               </div>
             ) : (
-              <div className="bg-white rounded-2xl border border-slate-100 shadow-3xs p-6 text-center text-slate-400 space-y-1">
-                <p className="text-xs font-bold uppercase tracking-wider">Sem histórico de viagens</p>
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-3xs p-5 text-center text-slate-400 space-y-1">
+                <p className="text-xs font-bold uppercase tracking-wider">Sem viagens no histórico</p>
                 <p className="text-[10px] text-slate-400 leading-normal">
-                  As informações de suas viagens agendadas aparecerão aqui assim que realizar um agendamento.
+                  Viagens concluídas, atrasadas ou canceladas aparecerão aqui.
                 </p>
               </div>
             )}

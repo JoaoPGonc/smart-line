@@ -3,7 +3,7 @@ import { ScreenId, Appointment } from "../types";
 import BottomNavigation from "./BottomNavigation";
 import MapComponent from "./MapComponent";
 import { Check, Clock, ShieldAlert, ArrowRight, HelpCircle, TrafficCone, Compass } from "lucide-react";
-import { formatDisplayDate } from "../formatDateHelper";
+import { formatDisplayDate, formatAddress } from "../formatDateHelper";
 
 interface ScheduleConfirmedScreenProps {
   onNavigate: (screen: ScreenId) => void;
@@ -18,17 +18,26 @@ export default function ScheduleConfirmedScreen({
   originCoords,
   destCoords
 }: ScheduleConfirmedScreenProps) {
-  // Use fallbacks if no appointment state exists yet
-  const origin = appointment?.origin?.split(",")[0] || "Posto Carreteiro";
-  const destination = appointment?.destination ? (appointment.destination.split("-")[0]?.trim() || appointment.destination) : "Porto de Tubarão";
-  const time = appointment?.time || "11:30";
-  const arrival = appointment?.estimatedArrival || "~16:45";
+  // Use fallbacks and robust string checks if no appointment state exists yet
+  const originStr = typeof appointment?.origin === "string" ? appointment.origin : "Posto Carreteiro";
+  const destStr = typeof appointment?.destination === "string" ? appointment.destination : "Porto de Tubarão";
   
-  const departureDate = appointment?.departureDate ? formatDisplayDate(appointment.departureDate) : (appointment?.date ? formatDisplayDate(appointment.date) : "Hoje");
-  const arrivalDate = appointment?.arrivalDate ? formatDisplayDate(appointment.arrivalDate) : (appointment?.date ? formatDisplayDate(appointment.date) : "Hoje");
+  const origin = formatAddress(originStr, "Ponto de Partida");
+  const destination = formatAddress(destStr.split("-")[0]?.trim() || destStr, "Porto de Tubarão");
+  
+  const time = typeof appointment?.time === "string" ? appointment.time : "11:30";
+  const arrival = typeof appointment?.estimatedArrival === "string" ? appointment.estimatedArrival : "~16:45";
+  
+  const departureDate = typeof appointment?.departureDate === "string" && appointment.departureDate 
+    ? formatDisplayDate(appointment.departureDate) 
+    : (typeof appointment?.date === "string" && appointment.date ? formatDisplayDate(appointment.date) : "Hoje");
+    
+  const arrivalDate = typeof appointment?.arrivalDate === "string" && appointment.arrivalDate 
+    ? formatDisplayDate(appointment.arrivalDate) 
+    : (typeof appointment?.date === "string" && appointment.date ? formatDisplayDate(appointment.date) : "Hoje");
   
   // Format arrival so it does NOT include the day of arrival, only the time as requested
-  const formattedArrival = arrival.replace("~", "");
+  const formattedArrival = arrival && typeof arrival === "string" ? arrival.replace("~", "") : arrival;
 
   return (
     <div id="schedule-confirmed-screen" className="flex flex-col h-full bg-slate-50 overflow-hidden font-sans">
@@ -47,37 +56,52 @@ export default function ScheduleConfirmedScreen({
 
         {/* Departure & Arrival Card */}
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-xs relative">
-          <div className="flex justify-between items-start">
-            {/* Timeline track */}
-            <div className="flex flex-col gap-6 relative pl-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[1.5px] before:bg-slate-200">
-              {/* Origin */}
-              <div className="relative">
+          <div className="flex flex-col gap-5 relative pl-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[1.5px] before:bg-slate-200">
+            
+            {/* Origin */}
+            <div className="flex justify-between items-start w-full gap-4">
+              <div className="relative flex-1">
                 <span className="absolute -left-[23px] top-1 w-3 h-3 rounded-full border-2 border-blue-900 bg-white"></span>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">PARTIDA</p>
-                <p className="text-xs font-bold text-slate-700">{origin}</p>
+                <p className="text-xs font-bold text-slate-700 pr-2 line-clamp-2" title={originStr}>{originStr}</p>
               </div>
-
-              {/* Destination */}
-              <div className="relative">
-                <span className="absolute -left-[23px] top-1 w-3 h-3 rounded-full border-2 border-red-500 bg-white"></span>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">DESTINO</p>
-                <p className="text-xs font-bold text-slate-700">{destination}</p>
-              </div>
-            </div>
-
-            {/* Timestamps */}
-            <div className="text-right space-y-6">
-              <div>
+              <div className="text-right shrink-0">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">SAÍDA</p>
                 <p className="text-xs font-black text-blue-950">{time}</p>
                 <p className="text-[9px] font-bold text-slate-500">{departureDate}</p>
               </div>
-              <div>
+            </div>
+
+            {/* Dynamic Stops */}
+            {appointment?.customStops?.map((stop, idx) => (
+              <div key={`stop-${idx}`} className="flex justify-between items-start w-full gap-4">
+                <div className="relative flex-1">
+                  <span className="absolute -left-[23px] top-1 w-3 h-3 rounded-full border-2 border-orange-500 bg-white"></span>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">PARADA {idx + 1}</p>
+                  <p className="text-xs font-bold text-slate-700 pr-2 line-clamp-2" title={stop.title}>{stop.title}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">PREVISÃO</p>
+                  <p className="text-xs font-black text-blue-950">{stop.time || "--:--"}</p>
+                  <p className="text-[9px] font-bold text-slate-500">{departureDate}</p>
+                </div>
+              </div>
+            ))}
+
+            {/* Destination */}
+            <div className="flex justify-between items-start w-full gap-4">
+              <div className="relative flex-1">
+                <span className="absolute -left-[23px] top-1 w-3 h-3 rounded-full border-2 border-red-500 bg-white"></span>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">DESTINO</p>
+                <p className="text-xs font-bold text-slate-700 pr-2 line-clamp-2" title={destStr}>{destStr}</p>
+              </div>
+              <div className="text-right shrink-0">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">CHEGADA</p>
                 <p className="text-xs font-black text-blue-950">{formattedArrival}</p>
                 <p className="text-[9px] font-bold text-slate-500">{arrivalDate}</p>
               </div>
             </div>
+
           </div>
         </div>
 

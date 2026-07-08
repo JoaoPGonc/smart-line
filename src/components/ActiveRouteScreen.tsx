@@ -1,7 +1,9 @@
-import { formatDisplayDate } from "../formatDateHelper";
-import React, { useState, useEffect, useCallback, useRef } from "react";
-import { ScreenId, Appointment } from "../types";
+import { formatDisplayDate, formatAddress } from "../formatDateHelper";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { ScreenId, Appointment, TrafficAlert } from "../types";
 import MapComponent from "./MapComponent";
+import { db } from "../lib/firebase";
+import { collection, query, onSnapshot } from "firebase/firestore";
 import {
   ArrowLeft,
   Navigation,
@@ -93,8 +95,15 @@ export default function ActiveRouteScreen({
   destCoords,
   checkedStops = [false, false, false],
 }: ActiveRouteScreenProps) {
-  // GPS state
-  const [userGpsCoords, setUserGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [userGpsCoords, setUserGpsCoords] = useState<{ lat: number; lng: number } | null>(() => {
+    const cached = localStorage.getItem("smartline_last_gps");
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return null;
+  });
   const [isUsingRealGps, setIsUsingRealGps] = useState(false);
   const [speed, setSpeed] = useState(0);
 
@@ -102,6 +111,9 @@ export default function ActiveRouteScreen({
   const [routePoints, setRoutePoints] = useState<[number, number][]>([]);
   const [routeLegs, setRouteLegs] = useState<OsrmLeg[]>([]);
   const routeReadyRef = useRef(false);
+  // Refs to read latest route data inside GPS effect without adding them as deps
+  const routePointsRef = useRef<[number, number][]>([]);
+  const routeLegsRef = useRef<OsrmLeg[]>([]);
 
   // Derived navigation state
   const [progress, setProgress] = useState(0);
@@ -109,11 +121,34 @@ export default function ActiveRouteScreen({
   const [nextStep, setNextStep] = useState<OsrmStep | null>(null);
   const [distToNextStepM, setDistToNextStepM] = useState<number>(99999);
 
+  const [alerts, setAlerts] = useState<TrafficAlert[]>([]);
+
+  useEffect(() => {
+    const q = query(collection(db, "traffic_alerts"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const now = Date.now();
+      const activeAlerts: TrafficAlert[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as any;
+        if (data.expiresAt > now && (data.votesDown || 0) < 3) {
+          activeAlerts.push({
+            id: docSnap.id,
+            ...data
+          } as TrafficAlert);
+        }
+      });
+      setAlerts(activeAlerts);
+    });
+    return () => unsubscribe();
+  }, []);
+
   // ── Receive OSRM route data from MapComponent ──────────────────────────────
   const handleRouteReady = useCallback(
     (points: [number, number][], legs: OsrmLeg[]) => {
       setRoutePoints(points);
       setRouteLegs(legs);
+      routePointsRef.current = points;
+      routeLegsRef.current = legs;
       routeReadyRef.current = true;
 
       // If we already have GPS coords, compute immediately
@@ -151,6 +186,7 @@ export default function ActiveRouteScreen({
       const { latitude, longitude, speed: gpsSpeed } = position.coords;
       const coords = { lat: latitude, lng: longitude };
       setUserGpsCoords(coords);
+      localStorage.setItem("smartline_last_gps", JSON.stringify(coords));
       setIsUsingRealGps(true);
 
       if (gpsSpeed !== null && gpsSpeed !== undefined && gpsSpeed > 0) {
@@ -160,18 +196,18 @@ export default function ActiveRouteScreen({
       }
 
       // Recalculate real progress & next step whenever GPS updates
-      if (routeReadyRef.current && routePoints.length > 0) {
+      if (routeReadyRef.current && routePointsRef.current.length > 0) {
         const { progress: p, distanceRemainingKm: d } = getProgressAlongRoute(
           latitude,
           longitude,
-          routePoints
+          routePointsRef.current
         );
         setProgress(p);
         setDistanceRemainingKm(d);
       }
 
-      if (routeReadyRef.current && routeLegs.length > 0) {
-        const { step, distanceToStepM } = findCurrentStep(latitude, longitude, routeLegs);
+      if (routeReadyRef.current && routeLegsRef.current.length > 0) {
+        const { step, distanceToStepM } = findCurrentStep(latitude, longitude, routeLegsRef.current);
         setNextStep(step);
         setDistToNextStepM(distanceToStepM);
       }
@@ -184,7 +220,7 @@ export default function ActiveRouteScreen({
 
     const watchId = navigator.geolocation.watchPosition(handleSuccess, handleError, options);
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [routePoints, routeLegs]);
+  }, []); // ← sem deps: o watchPosition sobe apenas 1x e lê os dados pelos refs
 
   // ── Recalculate when route data arrives but GPS was already available ──────
   useEffect(() => {
@@ -211,13 +247,17 @@ export default function ActiveRouteScreen({
 
   // ── Stops ──────────────────────────────────────────────────────────────────
   const durMins = parseDurationMinutes(appointment?.estimatedDuration || "4h 35m");
-  const stops =
-    appointment?.customStops && appointment.customStops.length > 0
-      ? appointment.customStops
-      : getStopsForRoute(
-          appointment?.destination || "Porto de Tubarão",
-          (percent) => computeStopTime(appointment?.time || "11:30", durMins, percent)
-        );
+  // useMemo garante que o array só muda quando os dados do agendamento mudam de verdade,
+  // evitando que o MapComponent remonte o mapa a cada render por referência nova.
+  const stops = useMemo(() => {
+    if (appointment?.customStops && appointment.customStops.length > 0) {
+      return appointment.customStops;
+    }
+    return getStopsForRoute(
+      appointment?.destination || "Porto de Tubarão",
+      (percent) => computeStopTime(appointment?.time || "11:30", durMins, percent)
+    );
+  }, [appointment?.customStops, appointment?.destination, appointment?.time, durMins]);
 
   const nextUncheckedStopIndex = checkedStops.findIndex((c) => !c);
   const activeStopIndex =
@@ -229,7 +269,7 @@ export default function ActiveRouteScreen({
     if (activeStopIndex < stops.length) {
       return `Parada ${activeStopIndex + 1}: ${stops[activeStopIndex].title}`;
     }
-    return `Destino Final: ${appointment?.destination?.split(",")[0] || "Porto"}`;
+    return `Destino Final: ${formatAddress(appointment?.destination, "Porto")}`;
   };
 
   const getNextStopDesc = () => {
@@ -338,6 +378,7 @@ export default function ActiveRouteScreen({
           showZoomControls={false}
           showGpsIndicator={false}
           stops={stops}
+          alerts={alerts}
           onRouteReady={handleRouteReady}
         />
       </div>

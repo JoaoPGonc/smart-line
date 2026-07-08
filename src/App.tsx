@@ -56,20 +56,30 @@ export default function App() {
   // Track checked states for the 3 support stopovers on Screen 7
   const [checkedStops, setCheckedStops] = useState<boolean[]>([false, false, false]);
 
-  // Traffic Alerts list state - Persist dynamically via localStorage so none are pre-invented if none were sent
-  const [alerts, setAlerts] = useState<TrafficAlert[]>(() => {
-    try {
-      const saved = localStorage.getItem("trucker_traffic_alerts");
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  });
-
-  // Persist alerts to localStorage when updated
+  // ── Global background GPS tracker ─────────────────────────────────────────
+  // Runs once when the app loads and keeps updating localStorage continuously,
+  // regardless of which screen is active. This ensures that when any screen
+  // reads "smartline_last_gps", it always gets the most recent position without delay.
   useEffect(() => {
-    localStorage.setItem("trucker_traffic_alerts", JSON.stringify(alerts));
-  }, [alerts]);
+    if (!navigator.geolocation) return;
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const coords = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        };
+        localStorage.setItem("smartline_last_gps", JSON.stringify(coords));
+      },
+      (err) => {
+        // Silent fail — other screens will use cached value
+        console.warn("[GPS] Background tracker error:", err.message);
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, []);
 
   // 1. Listen to Auth State and Fetch from Firestore
   useEffect(() => {
@@ -286,11 +296,6 @@ export default function App() {
     }
   };
 
-  // Callback to append a new alert dynamically
-  const handleAddAlert = (newAlert: TrafficAlert) => {
-    setAlerts((prev) => [newAlert, ...prev]);
-  };
-
   // Toggle checklist for stopovers
   const handleToggleStop = (index: number) => {
     setCheckedStops((prev) => {
@@ -419,8 +424,10 @@ export default function App() {
         );
       case ScreenId.Ports:
         return <PortsScreen onNavigate={navigateTo} />;
+      case ScreenId.TransitCenter:
+        return <TransitCenterScreen onNavigate={navigateTo} />;
       case ScreenId.EmitAlert:
-        return <EmitAlertScreen onNavigate={navigateTo} onAddAlert={handleAddAlert} />;
+        return <EmitAlertScreen onNavigate={navigateTo} />;
       case ScreenId.AlertSuccess:
         return <AlertSuccessScreen onNavigate={navigateTo} />;
       case ScreenId.MyAccount:
@@ -445,6 +452,13 @@ export default function App() {
               navigateTo(ScreenId.Login);
             }}
             appointments={appointments}
+            onUpdateAppointmentStatus={(index, newStatus) => {
+              setAppointments(prev => {
+                const next = [...prev];
+                next[index] = { ...next[index], status: newStatus };
+                return next;
+              });
+            }}
           />
         );
       case ScreenId.EditProfile:

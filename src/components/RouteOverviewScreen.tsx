@@ -1,4 +1,4 @@
-import { formatDisplayDate } from "../formatDateHelper";
+import { formatDisplayDate, formatAddress } from "../formatDateHelper";
 import React, { useState } from "react";
 import { ScreenId, Appointment } from "../types";
 import BottomNavigation from "./BottomNavigation";
@@ -56,9 +56,9 @@ export default function RouteOverviewScreen({
 
   const appointment = appointments[activeIndex];
 
-  const origin = appointment?.origin?.split(",")[0] || "Ponto de Partida";
-  const destination = appointment?.destination 
-    ? (appointment.destination.split("-")[0]?.split(",")[0]?.trim() || appointment.destination) 
+  const origin = formatAddress(appointment?.origin, "Ponto de Partida");
+  const destination = appointment?.destination
+    ? formatAddress(appointment.destination.split("-")[0]?.trim() || appointment.destination, "Porto de Tubarão")
     : "Porto de Tubarão";
   const duration = appointment?.estimatedDuration || "4h 35m";
   const departure = appointment?.time || "11:30";
@@ -118,7 +118,7 @@ export default function RouteOverviewScreen({
               >
                 {appointments.map((app, idx) => (
                   <option key={idx} value={idx}>
-                    Viagem #{idx + 1}: {app.origin?.split(",")[0] || "Origem"} ➔ {app.destination?.split(",")[0] || "Destino"} ({app.time})
+                    Viagem #{idx + 1}: {formatAddress(app.origin, "Origem")} ➔ {formatAddress(app.destination, "Destino")} ({app.time})
                   </option>
                 ))}
               </select>

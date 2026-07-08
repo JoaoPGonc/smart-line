@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ScreenId, Appointment } from "../types";
 import BottomNavigation from "./BottomNavigation";
 import { Calendar as CalendarIcon, MapPin, ArrowRight, ArrowLeft, AlertCircle, RefreshCw, Navigation, Trash2, Clock, HelpCircle, X } from "lucide-react";
 import { calculateDynamicStops, parseDurationMinutes, fetchDynamicStopsFromOSM } from "../utils/routeUtils";
+import { formatAddress } from "../formatDateHelper";
 import { auth } from "../lib/firebase";
 import { logPortAppointment } from "../utils/portQueueService";
 
@@ -17,6 +18,30 @@ interface ScheduleScreenProps {
   onSetDestCoords: (coords: { lat: number; lng: number; name: string }) => void;
   appointments?: Appointment[];
 }
+
+const PORTS_LIST = [
+  "PORTO DE TUBARÃO - ES",
+  "PORTO DE SANTOS - SP",
+  "PORTO DE PARANAGUÁ - PR",
+  "PORTO DE ITAJAÍ - SC",
+  "PORTO DE RIO GRANDE - RS",
+  "PORTO DE SUAPE - PE",
+  "PORTO DE PECÉM - CE",
+  "PORTO DE ITAQUI - MA",
+  "PORTO DE VILA DO CONDE - PA",
+  "PORTO DE MANAUS - AM",
+  "PORTO DE SALVADOR - BA",
+  "PORTO DO RIO DE JANEIRO - RJ",
+  "PORTO DE SÃO SEBASTIÃO - SP",
+  "PORTO DE IMBITUBA - SC",
+  "PORTO DE SÃO FRANCISCO DO SUL - SC",
+  "PORTO DE VITÓRIA - ES",
+  "PORTO DE ARATU - BA",
+  "PORTO DE CABEDELO - PB",
+  "PORTO DE MACEIÓ - AL",
+  "PORTO DE NATAL - RN",
+  "PORTO DE SÃO LUÍS - MA"
+];
 
 export default function ScheduleScreen({ 
   onNavigate, 
@@ -43,6 +68,68 @@ export default function ScheduleScreen({
   const [geocoding, setGeocoding] = useState(false);
   const [loadingLabel, setLoadingLabel] = useState("ANALISANDO ROTA...");
   const [gpsError, setGpsError] = useState("");
+
+  const [originSuggestions, setOriginSuggestions] = useState<{name: string, lat: number, lng: number}[]>([]);
+  const [showOriginSuggestions, setShowOriginSuggestions] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const [destSuggestions, setDestSuggestions] = useState<string[]>([]);
+  const [showDestSuggestions, setShowDestSuggestions] = useState(false);
+
+  const handleOriginChange = (val: string) => {
+    setOrigin(val);
+    if (!val.trim()) {
+      setOriginSuggestions([]);
+      setShowOriginSuggestions(false);
+      return;
+    }
+    
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    
+    typingTimeoutRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val)}&format=json&limit=5&countrycodes=br`);
+        const data = await res.json();
+        if (data && data.length > 0) {
+          const suggestions = data.map((d: any) => ({
+            name: d.display_name,
+            lat: parseFloat(d.lat),
+            lng: parseFloat(d.lon)
+          }));
+          setOriginSuggestions(suggestions);
+          setShowOriginSuggestions(true);
+        } else {
+          setOriginSuggestions([]);
+          setShowOriginSuggestions(false);
+        }
+      } catch (err) {
+        console.error("Autocomplete error", err);
+      }
+    }, 500);
+  };
+
+  const selectOriginSuggestion = (sug: {name: string, lat: number, lng: number}) => {
+    setOrigin(sug.name);
+    onSetOriginCoords(sug);
+    setShowOriginSuggestions(false);
+  };
+
+  const handleDestChange = (val: string) => {
+    setDestination(val);
+    if (!val.trim()) {
+      setDestSuggestions([]);
+      setShowDestSuggestions(false);
+      return;
+    }
+    const filtered = PORTS_LIST.filter(p => p.toLowerCase().includes(val.toLowerCase()));
+    setDestSuggestions(filtered);
+    setShowDestSuggestions(true);
+  };
+
+  const selectDestSuggestion = (port: string) => {
+    setDestination(port);
+    setShowDestSuggestions(false);
+  };
 
   // Trucker needs states
   const [stopIntervalHours, setStopIntervalHours] = useState<number>(4);
@@ -404,7 +491,6 @@ export default function ScheduleScreen({
       portQueueTime: queueTime,
       savingsMinutes: 40,
       status: "confirmed",
-      portAppointmentId: portAppId || undefined,
       driverNeeds: {
         stopIntervalHours,
         requiresShower,
@@ -414,6 +500,10 @@ export default function ScheduleScreen({
       },
       customStops: finalStops,
     };
+    
+    if (portAppId) {
+      appointment.portAppointmentId = portAppId;
+    }
     
     onSetAppointment(appointment);
     
@@ -491,13 +581,30 @@ export default function ScheduleScreen({
               </label>
             </div>
 
-            <input
-              type="text"
-              value={origin}
-              onChange={(e) => setOrigin(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2.5 px-3.5 text-xs text-slate-700 font-medium focus:outline-none focus:bg-white focus:border-blue-900 transition"
-              placeholder="Digite cidade, estado ou endereço"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={origin}
+                onChange={(e) => handleOriginChange(e.target.value)}
+                onFocus={() => { if (originSuggestions.length > 0) setShowOriginSuggestions(true); }}
+                onBlur={() => setTimeout(() => setShowOriginSuggestions(false), 200)}
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2.5 px-3.5 text-xs text-slate-700 font-medium focus:outline-none focus:bg-white focus:border-blue-900 transition"
+                placeholder="Digite cidade, estado ou endereço"
+              />
+              {showOriginSuggestions && originSuggestions.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-100 shadow-md rounded-xl max-h-48 overflow-y-auto">
+                  {originSuggestions.map((sug, idx) => (
+                    <div 
+                      key={idx} 
+                      onClick={() => selectOriginSuggestion(sug)}
+                      className="px-3 py-2 text-[10px] text-slate-600 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0"
+                    >
+                      <MapPin className="w-3 h-3 inline-block mr-1 text-slate-400" /> {sug.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <button 
               type="button"
@@ -528,13 +635,30 @@ export default function ScheduleScreen({
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
               <MapPin className="w-3 h-3 text-red-500" /> PONTO DE CHEGADA
             </label>
-            <input
-              type="text"
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2.5 px-3.5 text-xs text-slate-700 font-medium focus:outline-none focus:bg-white focus:border-blue-900 transition"
-              placeholder="Digite o endereço, porto ou ponto de chegada"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={destination}
+                onChange={(e) => handleDestChange(e.target.value)}
+                onFocus={() => { if (destSuggestions.length > 0) setShowDestSuggestions(true); }}
+                onBlur={() => setTimeout(() => setShowDestSuggestions(false), 200)}
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2.5 px-3.5 text-xs text-slate-700 font-medium focus:outline-none focus:bg-white focus:border-blue-900 transition"
+                placeholder="Digite o endereço, porto ou ponto de chegada"
+              />
+              {showDestSuggestions && destSuggestions.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-100 shadow-md rounded-xl max-h-48 overflow-y-auto">
+                  {destSuggestions.map((port, idx) => (
+                    <div 
+                      key={idx} 
+                      onClick={() => selectDestSuggestion(port)}
+                      className="px-3 py-2 text-[10px] font-bold text-slate-700 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0"
+                    >
+                      <MapPin className="w-3 h-3 inline-block mr-1 text-red-400" /> {port}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Date & Time Row */}
@@ -726,7 +850,7 @@ export default function ScheduleScreen({
                 >
                   <div className="flex-1 min-w-0 pr-3">
                     <h4 className="text-xs font-black text-slate-800 truncate">
-                      {app.origin?.split(",")[0] || "Origem"} → {app.destination?.split(",")[0] || "Destino"}
+                      {formatAddress(app.origin, "Origem")} → {formatAddress(app.destination, "Destino")}
                     </h4>
                     <p className="text-[10px] text-slate-500 font-medium mt-0.5 flex items-center gap-1">
                       <CalendarIcon className="w-3 h-3" /> {app.date} às {app.time}

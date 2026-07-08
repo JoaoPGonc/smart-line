@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ScreenId, Appointment } from "../types";
 import MapComponent from "./MapComponent";
 import { ArrowLeft, Compass, Navigation2 } from "lucide-react";
+import { formatAddress } from "../formatDateHelper";
 
 interface ViewRouteMapScreenProps {
   onNavigate: (screen: ScreenId) => void;
@@ -28,8 +29,10 @@ export default function ViewRouteMapScreen({ onNavigate, originCoords, destCoord
     return `${Math.round(R * c)} KM`;
   };
 
-  const originName = appointment?.origin?.split(",")[0] || "Pedro Canário";
-  const destName = appointment?.destination ? (appointment.destination.split("-")[0]?.split(",")[0]?.trim() || appointment.destination) : "Porto de Tubarão";
+  const originName = formatAddress(appointment?.origin, "Pedro Canário");
+  const destName = appointment?.destination
+    ? formatAddress(appointment.destination.split("-")[0]?.trim() || appointment.destination, "Porto de Tubarão")
+    : "Porto de Tubarão";
 
   return (
     <div id="view-route-map" className="relative h-full bg-slate-950 flex flex-col justify-between font-sans">

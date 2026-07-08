@@ -2,16 +2,36 @@ import React, { useState, useEffect } from "react";
 import { ScreenId, TrafficAlert } from "../types";
 import BottomNavigation from "./BottomNavigation";
 import { Car, TrafficCone, Hammer, AlertOctagon, CheckSquare, Square, ChevronRight, MapPin, RefreshCw } from "lucide-react";
+import { auth, db } from "../lib/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 interface EmitAlertScreenProps {
   onNavigate: (screen: ScreenId) => void;
-  onAddAlert: (alert: TrafficAlert) => void;
 }
 
-export default function EmitAlertScreen({ onNavigate, onAddAlert }: EmitAlertScreenProps) {
+export default function EmitAlertScreen({ onNavigate }: EmitAlertScreenProps) {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [userLocationStr, setUserLocationStr] = useState<string>("BR-101, Km 260");
+  const [userLocationStr, setUserLocationStr] = useState<string>(() => {
+    const cached = localStorage.getItem("smartline_last_gps");
+    if (cached) {
+      try {
+        const { lat, lng } = JSON.parse(cached);
+        return `Localização Atual (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+      } catch (e) {}
+    }
+    return "Buscando localização...";
+  });
+  
+  const [userCoords, setUserCoords] = useState<{lat: number, lng: number} | null>(() => {
+    const cached = localStorage.getItem("smartline_last_gps");
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch (e) {}
+    }
+    return null;
+  });
   const [isLocating, setIsLocating] = useState(false);
 
   // Obtain GPS coordinates and reverse geocode them on mount
@@ -25,6 +45,8 @@ export default function EmitAlertScreen({ onNavigate, onAddAlert }: EmitAlertScr
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
+        setUserCoords({ lat: latitude, lng: longitude });
+        localStorage.setItem("smartline_last_gps", JSON.stringify({ lat: latitude, lng: longitude }));
         try {
           // Use free OpenStreetMap Nominatim reverse geocoder
           const response = await fetch(
@@ -111,7 +133,7 @@ export default function EmitAlertScreen({ onNavigate, onAddAlert }: EmitAlertScr
     }
   ];
 
-  const handleSendAlert = () => {
+  const handleSendAlert = async () => {
     if (!selectedType) {
       setError("Por favor, selecione um tipo de alerta antes de enviar.");
       return;
@@ -125,18 +147,41 @@ export default function EmitAlertScreen({ onNavigate, onAddAlert }: EmitAlertScr
       (selectedType === "weather" || selectedType === "radar" || selectedType === "animal") ? "other" : 
       selectedType as any;
 
-    const newAlert: TrafficAlert = {
-      id: `alert-${Date.now()}`,
-      type: mappedType,
-      title: chosen.title.toUpperCase() + " RECENTE",
-      description: chosen.description,
-      timeAgo: "AGORA",
-      location: userLocationStr,
-      severity: selectedType === "blocked" || selectedType === "accident" || selectedType === "protest" ? "high" : "medium",
-    };
+    // Calculate expiration based on type
+    const now = Date.now();
+    let durationMs = 3 * 60 * 60 * 1000; // Default: 3 hours
+    
+    if (selectedType === "animal") {
+      durationMs = 1 * 60 * 60 * 1000; // 1 hour
+    } else if (selectedType === "accident") {
+      durationMs = 4 * 60 * 60 * 1000; // 4 hours
+    } else if (selectedType === "protest" || selectedType === "blocked") {
+      durationMs = 8 * 60 * 60 * 1000; // 8 hours
+    }
 
-    onAddAlert(newAlert);
-    onNavigate(ScreenId.AlertSuccess);
+    const expiresAt = now + durationMs;
+
+    try {
+      const alertData = {
+        type: mappedType,
+        title: chosen.title.toUpperCase() + " RECENTE",
+        description: chosen.description,
+        location: userLocationStr,
+        severity: selectedType === "blocked" || selectedType === "accident" || selectedType === "protest" ? "high" : "medium",
+        createdAt: now,
+        expiresAt: expiresAt,
+        votesDown: 0,
+        authorId: auth.currentUser?.uid || "anonymous",
+        lat: userCoords?.lat || -20.3335,
+        lng: userCoords?.lng || -40.2820
+      };
+
+      await addDoc(collection(db, "traffic_alerts"), alertData);
+      onNavigate(ScreenId.AlertSuccess);
+    } catch (err) {
+      console.error("Error saving alert to Firestore:", err);
+      setError("Falha ao salvar alerta. Tente novamente.");
+    }
   };
 
   return (

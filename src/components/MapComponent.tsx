@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import L from "leaflet";
 import { getStopsForRoute, snapToRoute, OsrmLeg } from "../utils/routeUtils";
 import { Compass } from "lucide-react";
+import { TrafficAlert } from "../types";
 
 interface MapComponentProps {
   routeMode?: "overview" | "active" | "static";
@@ -14,6 +15,7 @@ interface MapComponentProps {
   showZoomControls?: boolean;
   showGpsIndicator?: boolean;
   stops?: Array<{ id: string; title: string; desc: string; lat: number; lng: number; time: string }> | null;
+  alerts?: TrafficAlert[] | null;
   /** Called once OSRM route data has been loaded. Provides the polyline points and step data for GPS navigation. */
   onRouteReady?: (routePoints: [number, number][], legs: OsrmLeg[]) => void;
 }
@@ -29,6 +31,7 @@ export default function MapComponent({
   showZoomControls = true,
   showGpsIndicator = true,
   stops = null,
+  alerts = null,
   onRouteReady
 }: MapComponentProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -40,6 +43,56 @@ export default function MapComponent({
   const routePointsRef = useRef<[number, number][]>([]);
   const truckMarkerRef = useRef<L.Marker | null>(null);
   const stopMarkersRef = useRef<L.Marker[]>([]);
+  const stopsRef = useRef(stops);
+  useEffect(() => { stopsRef.current = stops; }, [stops]);
+
+  const alertMarkersRef = useRef<L.Marker[]>([]);
+
+  // Render traffic alerts on the map
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    // Clear old markers
+    alertMarkersRef.current.forEach(m => m.remove());
+    alertMarkersRef.current = [];
+
+    if (!alerts || alerts.length === 0) return;
+
+    alerts.forEach((alert) => {
+      if (alert.lat === undefined || alert.lng === undefined) return;
+
+      let iconHtml = "🚨";
+      let bgColor = "bg-red-500";
+      
+      if (alert.type === "maintenance" || alert.type === "other") {
+        iconHtml = "🚧";
+        bgColor = "bg-orange-500";
+      } else if (alert.type === "blocked") {
+        iconHtml = "🚫";
+        bgColor = "bg-blue-600";
+      }
+
+      const alertIcon = L.divIcon({
+        html: `
+          <div class="flex flex-col items-center select-none animate-bounce">
+            <div class="w-6 h-6 rounded-full ${bgColor} border-2 border-white flex items-center justify-center text-white shadow-lg text-[10px]">
+              ${iconHtml}
+            </div>
+          </div>
+        `,
+        className: "custom-leaflet-marker",
+        iconSize: [30, 30],
+        iconAnchor: [15, 30]
+      });
+
+      const marker = L.marker([alert.lat, alert.lng], { icon: alertIcon })
+        .addTo(map)
+        .bindPopup(`<b>${alert.title}</b><br/>${alert.description}<br/><small>${alert.location}</small>`);
+
+      alertMarkersRef.current.push(marker);
+    });
+  }, [alerts, loadingRoute]);
 
   // Default Espirito Santo coordinates
   const defaultOrigin = { lat: -18.0253, lng: -40.1509, name: "Posto Carreteiro (Pedro Canário)" };
@@ -158,7 +211,7 @@ export default function MapComponent({
             ⚓
           </div>
           <div class="bg-blue-950 text-white text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shadow-md whitespace-nowrap mt-1 border border-blue-800">
-            ${startCoords.name ? startCoords.name.split(",")[0] : "Partida"}
+            ${(() => { const parts = (startCoords.name || "Partida").split(",").map(p => p.trim()).filter(Boolean); return parts.find(p => !/^\d+$/.test(p)) || parts[0] || "Partida"; })()}
           </div>
         </div>
       `,
@@ -178,7 +231,7 @@ export default function MapComponent({
             🚩
           </div>
           <div class="bg-red-950 text-white text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shadow-md whitespace-nowrap mt-1 border border-red-800">
-            ${endCoords.name ? endCoords.name.split(",")[0] : "Destino"}
+            ${(() => { const parts = (endCoords.name || "Destino").split(",").map(p => p.trim()).filter(Boolean); return parts.find(p => !/^\d+$/.test(p)) || parts[0] || "Destino"; })()}
           </div>
         </div>
       `,
@@ -196,8 +249,8 @@ export default function MapComponent({
       stopMarkersRef.current = [];
       if (!points || !Array.isArray(points) || points.length === 0) return;
 
-      const stopsToDraw = stops && stops.length > 0 
-        ? stops 
+      const stopsToDraw = stopsRef.current && stopsRef.current.length > 0
+        ? stopsRef.current
         : getStopsForRoute(endCoords.name || "", () => "");
 
       stopsToDraw.forEach((stop, idx) => {
@@ -238,8 +291,8 @@ export default function MapComponent({
       `${startCoords.lng},${startCoords.lat}`
     ];
     
-    const stopsToRoute = stops && stops.length > 0 
-      ? stops 
+    const stopsToRoute = stopsRef.current && stopsRef.current.length > 0
+      ? stopsRef.current
       : getStopsForRoute(endCoords.name || "", () => "");
 
     stopsToRoute.forEach(stop => {
@@ -353,7 +406,7 @@ export default function MapComponent({
         mapInstanceRef.current = null;
       }
     };
-  }, [routeMode, startCoords.lat, startCoords.lng, endCoords.lat, endCoords.lng, stops]);
+  }, [routeMode, startCoords.lat, startCoords.lng, endCoords.lat, endCoords.lng]); // stops removido das deps: usa stopsRef para evitar remontagem do mapa
 
   // 5. Update truck position smoothly when the progress or userGpsCoords updates
   useEffect(() => {

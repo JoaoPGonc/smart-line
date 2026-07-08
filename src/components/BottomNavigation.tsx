@@ -19,7 +19,7 @@ export default function BottomNavigation({ activeTab, onNavigate }: BottomNaviga
       id: "transito" as const,
       label: "ALERTAS",
       icon: AlertTriangle, // traffic signal/warning icon
-      screen: ScreenId.EmitAlert,
+      screen: ScreenId.TransitCenter,
     },
     {
       id: "portos" as const,

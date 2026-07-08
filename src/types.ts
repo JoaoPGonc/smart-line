@@ -28,7 +28,7 @@ export interface Appointment {
   estimatedArrival: string; // Desired/estimated arrival time
   portQueueTime: string; // e.g. "1h 45m"
   savingsMinutes: number; // e.g. 40
-  status: "pending" | "confirmed";
+  status: "pending" | "confirmed" | "completed" | "delayed" | "canceled";
   portAppointmentId?: string;
   driverNeeds?: {
     stopIntervalHours: number;
@@ -52,9 +52,15 @@ export interface TrafficAlert {
   type: "accident" | "congestion" | "maintenance" | "blocked" | "other";
   title: string;
   description: string;
-  timeAgo: string; // e.g. "12 MIN"
+  timeAgo: string; // Keep for legacy/UI formatted time
   location: string; // e.g. "BR-101, Km 242"
   severity: "high" | "medium" | "low";
+  createdAt?: number; // timestamp in ms
+  expiresAt?: number; // timestamp in ms
+  votesDown?: number; // negative votes
+  authorId?: string; // UID of creator
+  lat?: number;
+  lng?: number;
 }
 
 export interface SupportItem {
