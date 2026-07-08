@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ScreenId, Appointment } from "../types";
 import MapComponent from "./MapComponent";
-import { ArrowLeft, Compass } from "lucide-react";
+import { ArrowLeft, Compass, Navigation2 } from "lucide-react";
 
 interface ViewRouteMapScreenProps {
   onNavigate: (screen: ScreenId) => void;
