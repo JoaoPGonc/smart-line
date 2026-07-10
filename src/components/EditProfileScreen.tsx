@@ -18,7 +18,6 @@ export default function EditProfileScreen({ onNavigate }: EditProfileScreenProps
 
   const [formData, setFormData] = useState({
     name: "",
-    cpf: "",
     plate: "",
     company: "",
     photoURL: "",
@@ -37,7 +36,6 @@ export default function EditProfileScreen({ onNavigate }: EditProfileScreenProps
           const data = snap.data();
           setFormData({
             name: data.name || user.displayName || "",
-            cpf: data.cpf || "",
             plate: data.plate || "",
             company: data.company || "",
             photoURL: data.photoURL || user.photoURL || "",
@@ -92,7 +90,6 @@ export default function EditProfileScreen({ onNavigate }: EditProfileScreenProps
       // 1. Update Firestore
       await setDoc(doc(db, "users", user.uid), {
         name: formData.name,
-        cpf: formData.cpf,
         plate: formData.plate,
         company: formData.company,
         photoURL: formData.photoURL,
@@ -197,18 +194,6 @@ export default function EditProfileScreen({ onNavigate }: EditProfileScreenProps
                 onChange={handleChange}
                 className="w-full bg-white border border-slate-200 p-3.5 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition"
                 required
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">CPF</label>
-              <input 
-                type="text" 
-                name="cpf"
-                value={formData.cpf}
-                onChange={handleChange}
-                placeholder="000.000.000-00"
-                className="w-full bg-white border border-slate-200 p-3.5 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition"
               />
             </div>
 

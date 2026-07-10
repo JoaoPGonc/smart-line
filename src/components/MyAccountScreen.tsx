@@ -120,7 +120,7 @@ export default function MyAccountScreen({ onNavigate, isDarkMode, onToggleDarkMo
  
             {/* Profile text */}
             <div>
-              <h3 className="text-base font-black tracking-tight">{profile?.name || "Carregando..."}</h3>
+              <h3 className="text-base font-black tracking-tight">{profile?.name || (auth.currentUser ? "Carregando..." : "Convidado")}</h3>
               <p className="text-[10px] text-blue-200">{profile?.company || "Motorista"}</p>
             </div>
           </div>

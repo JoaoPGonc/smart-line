@@ -135,7 +135,7 @@ export default function App() {
             profileExists = true;
             const data = userDoc.data();
             
-            // Update the user's name to match their Google account name
+            // Update the user's name to match their auth profile name
             if (user.displayName && data.name !== user.displayName) {
               await setDoc(doc(db, "users", user.uid), { name: user.displayName }, { merge: true });
             }
@@ -145,17 +145,9 @@ export default function App() {
             if (data.lastOriginCoords !== undefined) setOriginCoords(data.lastOriginCoords);
             if (data.lastDestCoords !== undefined) setDestCoords(data.lastDestCoords);
           } else {
-            // Auto-create a default profile in Firestore on Google Sign-In
-            await setDoc(doc(db, "users", user.uid), {
-              uid: user.uid,
-              name: user.displayName || "Motorista",
-              email: user.email || "",
-              cpf: "Não cadastrado",
-              plate: "Não cadastrado",
-              company: "Não cadastrado",
-              createdAt: new Date().toISOString()
-            }, { merge: true });
-            profileExists = true;
+            // Profile doesn't exist yet, which is expected during the 2-step manual registration process.
+            // Do not auto-create it here. Let the RegisterScreen handle it.
+            profileExists = false;
           }
         } catch (e) {
           console.warn("Could not load from Firestore, using offline data:", e);
