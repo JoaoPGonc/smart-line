@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ScreenId } from "../types";
-import { ArrowLeft, User, Mail, FileText, Truck, ShieldCheck, AlertCircle, RefreshCw, X, Check, Lock } from "lucide-react";
+import { ArrowLeft, User, Mail, FileText, Truck, ShieldCheck, AlertCircle, RefreshCw, X, Check, Lock, Phone } from "lucide-react";
 import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
@@ -15,6 +15,7 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
     name: "",
     email: "",
     cpf: "",
+    phone: "",
     plate: "",
     company: "",
   });
@@ -26,6 +27,8 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
 
   const [registerName, setRegisterName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
+  const [registerCpf, setRegisterCpf] = useState("");
+  const [registerPhone, setRegisterPhone] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [registerLoading, setRegisterLoading] = useState(false);
@@ -33,10 +36,23 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
   // Substituído: handleManualRegister com debug de erros mais detalhados
   const handleManualRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!registerName || !registerEmail || !registerPassword || !confirmPassword) {
-      setError("Por favor, preencha todos os campos do cadastro por e-mail.");
+    if (!registerName || !registerEmail || !registerCpf || !registerPhone || !registerPassword || !confirmPassword) {
+      setError("Por favor, preencha todos os campos do cadastro.");
       return;
     }
+
+    const cleanCPF = registerCpf.replace(/\D/g, "");
+    if (!cleanCPF || cleanCPF.length !== 11) {
+      setError("Por favor, informe um CPF válido (11 dígitos).");
+      return;
+    }
+
+    const cleanPhone = registerPhone.replace(/\D/g, "");
+    if (!cleanPhone || (cleanPhone.length !== 10 && cleanPhone.length !== 11)) {
+      setError("Por favor, informe um número de telefone válido com DDD (10 ou 11 dígitos).");
+      return;
+    }
+
     if (registerPassword !== confirmPassword) {
       setError("As senhas digitadas não coincidem.");
       return;
@@ -56,6 +72,8 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
         ...prev,
         name: registerName.trim(),
         email: registerEmail.trim(),
+        cpf: registerCpf.trim(),
+        phone: registerPhone.trim(),
       }));
     } catch (err: any) {
       console.error("Erro no cadastro manual:", err);
@@ -93,11 +111,52 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
     return () => unsubscribe();
   }, []);
 
+  const formatCPF = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 11);
+    let masked = digits;
+    if (digits.length > 9) {
+      masked = `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+    } else if (digits.length > 6) {
+      masked = `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+    } else if (digits.length > 3) {
+      masked = `${digits.slice(0, 3)}.${digits.slice(3)}`;
+    }
+    return masked;
+  };
+
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 11);
+    let masked = digits;
+    if (digits.length > 10) {
+      masked = `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+    } else if (digits.length > 6) {
+      masked = `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+    } else if (digits.length > 2) {
+      masked = `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    } else if (digits.length > 0) {
+      masked = `(${digits}`;
+    }
+    return masked;
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    if (name === "cpf") {
+      setFormData((prev) => ({
+        ...prev,
+        cpf: formatCPF(value)
+      }));
+    } else if (name === "phone") {
+      setFormData((prev) => ({
+        ...prev,
+        phone: formatPhone(value)
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value
+      }));
+    }
   };
 
   // Substituído: handleGoogleConnect com debug de erro
@@ -140,6 +199,18 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
       return;
     }
 
+    const cleanCPF = formData.cpf.replace(/\D/g, "");
+    if (!cleanCPF || cleanCPF.length !== 11) {
+      setError("Por favor, informe um CPF válido (11 dígitos).");
+      return;
+    }
+
+    const cleanPhone = formData.phone.replace(/\D/g, "");
+    if (!cleanPhone || (cleanPhone.length !== 10 && cleanPhone.length !== 11)) {
+      setError("Por favor, informe um número de telefone válido com DDD (10 ou 11 dígitos).");
+      return;
+    }
+
     if (!agreedToTerms) {
       setError("Você deve aceitar os Termos de Uso operacionais para prosseguir.");
       return;
@@ -155,6 +226,7 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
         name: formData.name.trim() || currentUser.displayName || "Motorista",
         email: formData.email.trim() || currentUser.email || "",
         cpf: formData.cpf.trim(),
+        phone: formData.phone.trim(),
         plate: formData.plate.trim(),
         company: formData.company.trim(),
         createdAt: new Date().toISOString()
@@ -229,10 +301,10 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
               /* Step 1: Request Google or Email registration */
               <div className="space-y-4">
                 {/* Manual registration fields */}
-                <form onSubmit={handleManualRegister} className="space-y-3.5">
+                <form onSubmit={handleManualRegister} className="space-y-3.5" noValidate>
                   <div>
                     <label className="block text-[9px] font-bold tracking-widest text-slate-400 uppercase mb-1">
-                      Nome Completo
+                      Nome Completo {!registerName && <span className="text-red-500">*</span>}
                     </label>
                     <div className="relative">
                       <span className="absolute left-3.5 top-3.5 text-slate-400">
@@ -251,7 +323,7 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
 
                   <div>
                     <label className="block text-[9px] font-bold tracking-widest text-slate-400 uppercase mb-1">
-                      Endereço de E-mail
+                      Endereço de E-mail {!registerEmail && <span className="text-red-500">*</span>}
                     </label>
                     <div className="relative">
                       <span className="absolute left-3.5 top-3.5 text-slate-400">
@@ -268,9 +340,52 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
                     </div>
                   </div>
 
+                  {/* CPF e Telefone (Mandatory) */}
+                  <div className="grid grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-[9px] font-bold tracking-widest text-slate-400 uppercase mb-1">
+                        CPF {!registerCpf && <span className="text-red-500">*</span>}
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-3.5 text-slate-400">
+                          <FileText className="w-4 h-4" />
+                        </span>
+                        <input
+                          type="text"
+                          value={registerCpf}
+                          onChange={(e) => setRegisterCpf(formatCPF(e.target.value))}
+                          placeholder="000.000.000-00"
+                          disabled={registerLoading || loading}
+                          required
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-900 transition"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[9px] font-bold tracking-widest text-slate-400 uppercase mb-1">
+                        Telefone {!registerPhone && <span className="text-red-500">*</span>}
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-3.5 text-slate-400">
+                          <Phone className="w-4 h-4" />
+                        </span>
+                        <input
+                          type="text"
+                          value={registerPhone}
+                          onChange={(e) => setRegisterPhone(formatPhone(e.target.value))}
+                          placeholder="(00) 00000-0000"
+                          disabled={registerLoading || loading}
+                          required
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-10 pr-4 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-900 transition"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-[9px] font-bold tracking-widest text-slate-400 uppercase mb-1">
-                      Definir Senha
+                      Definir Senha {!registerPassword && <span className="text-red-500">*</span>}
                     </label>
                     <div className="relative">
                       <span className="absolute left-3.5 top-3.5 text-slate-400">
@@ -289,7 +404,7 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
 
                   <div>
                     <label className="block text-[9px] font-bold tracking-widest text-slate-400 uppercase mb-1">
-                      Confirmar Senha
+                      Confirmar Senha {!confirmPassword && <span className="text-red-500">*</span>}
                     </label>
                     <div className="relative">
                       <span className="absolute left-3.5 top-3.5 text-slate-400">
@@ -351,7 +466,7 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
               </div>
             ) : (
               /* Step 2: Show Optional Info Form + Terms */
-              <form onSubmit={handleSubmit} className="space-y-3.5">
+              <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
                 <div className="bg-emerald-50 text-emerald-800 text-[10px] font-bold p-2.5 rounded-lg border border-emerald-100 flex items-center gap-1.5 mb-2">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Conta Vinculada: {currentUser.email}</span>
@@ -396,11 +511,11 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
                   </div>
                 </div>
 
-                {/* CPF e Placa */}
+                {/* CPF e Telefone (Mandatory) */}
                 <div className="grid grid-cols-2 gap-3.5">
                   <div>
                     <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1">
-                      CPF (OPCIONAL)
+                      CPF {!formData.cpf && <span className="text-red-500">*</span>}
                     </label>
                     <input
                       type="text"
@@ -409,8 +524,27 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
                       onChange={handleChange}
                       placeholder="000.000.000-00"
                       className="w-full bg-slate-100 border border-transparent rounded-xl py-2.5 px-3 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-900 transition"
+                      required
                     />
                   </div>
+                  <div>
+                    <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1">
+                      TELEFONE {!formData.phone && <span className="text-red-500">*</span>}
+                    </label>
+                    <input
+                      type="text"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      placeholder="(00) 00000-0000"
+                      className="w-full bg-slate-100 border border-transparent rounded-xl py-2.5 px-3 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-900 transition"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* Placa e Transportadora (Optional) */}
+                <div className="grid grid-cols-2 gap-3.5">
                   <div>
                     <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1">
                       PLACA (OPCIONAL)
@@ -424,21 +558,19 @@ export default function RegisterScreen({ onNavigate }: RegisterScreenProps) {
                       className="w-full bg-slate-100 border border-transparent rounded-xl py-2.5 px-3 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-900 transition"
                     />
                   </div>
-                </div>
-
-                {/* Transportadora */}
-                <div>
-                  <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1">
-                    TRANSPORTADORA / EMPRESA (OPCIONAL)
-                  </label>
-                  <input
-                    type="text"
-                    name="company"
-                    value={formData.company}
-                    onChange={handleChange}
-                    placeholder="Transportadora Logística SA"
-                    className="w-full bg-slate-100 border border-transparent rounded-xl py-2.5 px-4 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-900 transition"
-                  />
+                  <div>
+                    <label className="block text-[10px] font-bold tracking-wider text-slate-400 uppercase mb-1">
+                      EMPRESA (OPCIONAL)
+                    </label>
+                    <input
+                      type="text"
+                      name="company"
+                      value={formData.company}
+                      onChange={handleChange}
+                      placeholder="Ex: Logística SA"
+                      className="w-full bg-slate-100 border border-transparent rounded-xl py-2.5 px-3 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-blue-900 transition"
+                    />
+                  </div>
                 </div>
 
                 {/* Terms of Use Checkbox */}

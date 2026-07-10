@@ -85,23 +85,16 @@ export default function App() {
   useEffect(() => {
     if (isDemo) {
       setAuthLoading(false);
-      const savedAppointments = localStorage.getItem("last_appointments");
-      const savedOrigin = localStorage.getItem("last_origin_coords");
-      const savedDest = localStorage.getItem("last_dest_coords");
-      const savedIndex = localStorage.getItem("selected_appointment_index");
+      // Clear any previous session leftovers so they start clean
+      localStorage.removeItem("last_appointments");
+      localStorage.removeItem("last_origin_coords");
+      localStorage.removeItem("last_dest_coords");
+      localStorage.removeItem("selected_appointment_index");
       
-      if (savedAppointments) {
-        try { setAppointments(JSON.parse(savedAppointments)); } catch(e) {}
-      }
-      if (savedIndex) {
-        try { setSelectedAppointmentIndex(Number(savedIndex)); } catch(e) {}
-      }
-      if (savedOrigin) {
-        try { setOriginCoords(JSON.parse(savedOrigin)); } catch(e) {}
-      }
-      if (savedDest) {
-        try { setDestCoords(JSON.parse(savedDest)); } catch(e) {}
-      }
+      setAppointments([]);
+      setSelectedAppointmentIndex(null);
+      setOriginCoords(null);
+      setDestCoords(null);
 
       setCurrentScreen((prev) => {
         if ([ScreenId.Login, ScreenId.Register, ScreenId.ForgotPassword].includes(prev)) {
@@ -207,16 +200,18 @@ export default function App() {
       });
     }
     
-    if (appointments && appointments.length > 0) {
-      localStorage.setItem("last_appointments", JSON.stringify(appointments));
-    } else {
-      localStorage.removeItem("last_appointments");
-    }
+    if (!isDemo) {
+      if (appointments && appointments.length > 0) {
+        localStorage.setItem("last_appointments", JSON.stringify(appointments));
+      } else {
+        localStorage.removeItem("last_appointments");
+      }
 
-    if (selectedAppointmentIndex !== null) {
-      localStorage.setItem("selected_appointment_index", String(selectedAppointmentIndex));
-    } else {
-      localStorage.removeItem("selected_appointment_index");
+      if (selectedAppointmentIndex !== null) {
+        localStorage.setItem("selected_appointment_index", String(selectedAppointmentIndex));
+      } else {
+        localStorage.removeItem("selected_appointment_index");
+      }
     }
   }, [appointments, selectedAppointmentIndex, isDemo]);
 
@@ -230,10 +225,12 @@ export default function App() {
         handleFirestoreError(e, OperationType.WRITE, `users/${user.uid}`);
       });
     }
-    if (originCoords) {
-      localStorage.setItem("last_origin_coords", JSON.stringify(originCoords));
-    } else {
-      localStorage.removeItem("last_origin_coords");
+    if (!isDemo) {
+      if (originCoords) {
+        localStorage.setItem("last_origin_coords", JSON.stringify(originCoords));
+      } else {
+        localStorage.removeItem("last_origin_coords");
+      }
     }
   }, [originCoords, isDemo]);
 
@@ -247,10 +244,12 @@ export default function App() {
         handleFirestoreError(e, OperationType.WRITE, `users/${user.uid}`);
       });
     }
-    if (destCoords) {
-      localStorage.setItem("last_dest_coords", JSON.stringify(destCoords));
-    } else {
-      localStorage.removeItem("last_dest_coords");
+    if (!isDemo) {
+      if (destCoords) {
+        localStorage.setItem("last_dest_coords", JSON.stringify(destCoords));
+      } else {
+        localStorage.removeItem("last_dest_coords");
+      }
     }
   }, [destCoords, isDemo]);
 

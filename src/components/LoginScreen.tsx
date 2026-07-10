@@ -188,12 +188,23 @@ export default function LoginScreen({ onNavigate, onLoginDemo }: LoginScreenProp
 
 
           {/* Create Account Link */}
-          <div className="text-center pt-2">
+          <div className="text-center pt-2 pb-1 border-b border-slate-100">
             <button
               onClick={() => onNavigate(ScreenId.Register)}
               className="text-[11px] font-bold text-blue-950 hover:underline"
             >
               Criar Conta
+            </button>
+          </div>
+
+          {/* Access Offline Mode */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={onLoginDemo}
+              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-4 rounded-xl shadow-xs flex items-center justify-center gap-2 tracking-wider text-xs transition uppercase cursor-pointer"
+            >
+              Entrar como Convidado
             </button>
           </div>
         </div>
