@@ -218,15 +218,43 @@ export const fetchPortAppointments = async (portId: string): Promise<PortAppoint
     const snap = await getDocs(q);
     const appointments: PortAppointment[] = [];
     
+    // Normalize today's date for comparison
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
     snap.forEach(doc => {
       const data = doc.data();
-      appointments.push({
-        portId: data.portId,
-        date: data.date,
-        time: data.time || "",
-        timestamp: data.timestamp.toDate().toISOString(),
-        uid: data.uid
-      });
+      const dateStr = data.date;
+      
+      let isExpired = false;
+      if (dateStr) {
+        let year, month, day;
+        if (dateStr.includes("-")) {
+          [year, month, day] = dateStr.split("-").map(Number);
+        } else if (dateStr.includes("/")) {
+          [day, month, year] = dateStr.split("/").map(Number);
+        }
+        
+        if (year && month && day) {
+          // If the year is 2 digit, assume 20xx
+          if (year < 100) year += 2000;
+          const appDate = new Date(year, month - 1, day);
+          appDate.setHours(0, 0, 0, 0);
+          if (appDate.getTime() < now.getTime()) {
+            isExpired = true;
+          }
+        }
+      }
+      
+      if (!isExpired) {
+        appointments.push({
+          portId: data.portId,
+          date: data.date,
+          time: data.time || "",
+          timestamp: data.timestamp.toDate().toISOString(),
+          uid: data.uid
+        });
+      }
     });
     
     return appointments;

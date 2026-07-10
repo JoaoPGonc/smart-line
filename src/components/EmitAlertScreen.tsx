@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ScreenId, TrafficAlert } from "../types";
 import BottomNavigation from "./BottomNavigation";
-import { Car, TrafficCone, Hammer, AlertOctagon, CheckSquare, Square, ChevronRight, MapPin, RefreshCw } from "lucide-react";
+import { Car, TrafficCone, Hammer, AlertOctagon, CheckSquare, Square, ChevronRight, MapPin, RefreshCw, Ban, Users, CloudRain, ShieldAlert, PawPrint, ArrowLeft } from "lucide-react";
 import { auth, db } from "../lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
@@ -16,11 +16,11 @@ export default function EmitAlertScreen({ onNavigate }: EmitAlertScreenProps) {
     const cached = localStorage.getItem("smartline_last_gps");
     if (cached) {
       try {
-        const { lat, lng } = JSON.parse(cached);
-        return `Localização Atual (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+        const parsed = JSON.parse(cached);
+        if (parsed.address) return parsed.address;
       } catch (e) {}
     }
-    return "Buscando localização...";
+    return "Localização Desconhecida";
   });
   
   const [userCoords, setUserCoords] = useState<{lat: number, lng: number} | null>(() => {
@@ -62,13 +62,13 @@ export default function EmitAlertScreen({ onNavigate }: EmitAlertScreenProps) {
             let locString = road;
             if (city) locString += `, ${city}`;
             if (state) locString += ` - ${state}`;
-            locString += ` (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
             setUserLocationStr(locString);
+            localStorage.setItem("smartline_last_gps", JSON.stringify({ lat: latitude, lng: longitude, address: locString }));
           } else {
-            setUserLocationStr(`Rodovia BR-101 (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
+            setUserLocationStr("Localização Desconhecida");
           }
         } catch (e) {
-          setUserLocationStr(`Rodovia BR-101 (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`);
+          setUserLocationStr("Localização Desconhecida");
         } finally {
           setIsLocating(false);
         }
@@ -104,31 +104,31 @@ export default function EmitAlertScreen({ onNavigate }: EmitAlertScreenProps) {
     {
       id: "blocked",
       title: "Pista interditada",
-      icon: AlertOctagon,
+      icon: Ban,
       description: "Interdição total de faixa devido a queda de barreira/carga.",
     },
     {
       id: "protest",
       title: "Manifestação",
-      icon: AlertOctagon,
+      icon: Users,
       description: "Ato popular interditando parcialmente as pistas de acesso.",
     },
     {
       id: "weather",
       title: "Neblina / Chuva forte",
-      icon: AlertOctagon,
+      icon: CloudRain,
       description: "Baixa visibilidade extrema na serra ou trecho urbano.",
     },
     {
       id: "radar",
       title: "Fiscalização / Balizamento",
-      icon: TrafficCone,
+      icon: ShieldAlert,
       description: "Ponto ativo de pesagem ou fiscalização na rodovia.",
     },
     {
       id: "animal",
       title: "Animal na Pista",
-      icon: Car,
+      icon: PawPrint,
       description: "Animal de grande porte avistado no acostamento ou na via.",
     }
   ];
@@ -188,13 +188,21 @@ export default function EmitAlertScreen({ onNavigate }: EmitAlertScreenProps) {
     <div id="emit-alert" className="flex flex-col h-full bg-slate-50 overflow-hidden font-sans justify-between">
       {/* Scrollable Form Body */}
       <div className="flex-1 overflow-y-auto p-6 space-y-5 pb-12">
-        <div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight">
-            Emitir Alerta
-          </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Selecione o tipo de evento na rodovia para alertar a comunidade.
-          </p>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => onNavigate(ScreenId.TransitCenter)}
+            className="p-2 -ml-2 rounded-xl text-slate-700 hover:bg-slate-100 active:scale-95 transition"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">
+              Emitir Alerta
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Selecione o tipo de evento na rodovia.
+            </p>
+          </div>
         </div>
 
         {/* Real-time Location Card */}
@@ -251,9 +259,6 @@ export default function EmitAlertScreen({ onNavigate }: EmitAlertScreenProps) {
                     <h4 className="text-xs font-extrabold text-slate-800 leading-none">
                       {opt.title}
                     </h4>
-                    <p className="text-[10px] text-slate-400 mt-1 max-w-[180px] truncate">
-                      {opt.description}
-                    </p>
                   </div>
                 </div>
 

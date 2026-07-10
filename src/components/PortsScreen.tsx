@@ -195,91 +195,40 @@ export default function PortsScreen({ onNavigate }: PortsScreenProps) {
               Fluxo de Agendamentos Realizados
             </h3>
           </div>
-          {/* Time Stat */}
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-3xl font-black text-blue-950 tracking-tight">{portAppointments.length}</span>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Agendamentos Realizados</span>
-          </div>
           <p className="text-[10px] text-slate-400 leading-normal">
             Gráfico de agendamento dos motoristas integrados na plataforma para este porto.
           </p>
           
-          {/* Hourly Flow Graph */}
+          {/* Time Stat */}
+          <div className="flex items-baseline gap-1.5 pt-2">
+            <span className="text-3xl font-black text-blue-950 tracking-tight">{portAppointments.length}</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wide">Agendamentos Realizados</span>
+          </div>
+
           <div className="pt-2">
             {(() => {
-              const getHourPeriod = (timeStr?: string): number => {
-                if (!timeStr || timeStr === "--:--") return -1;
-                const hourStr = timeStr.split(":")[0];
-                const hour = parseInt(hourStr, 10);
-                if (isNaN(hour)) return -1;
-                
-                if (hour >= 0 && hour < 6) return 0; // Madrugada
-                if (hour >= 6 && hour < 12) return 1; // Manhã
-                if (hour >= 12 && hour < 18) return 2; // Tarde
-                if (hour >= 18 && hour < 24) return 3; // Noite
-                return -1;
-              };
-
-              const periodCounts = [0, 0, 0, 0];
-              portAppointments.forEach((app) => {
-                const pIndex = getHourPeriod(app.time);
-                if (pIndex >= 0 && pIndex < 4) {
-                  periodCounts[pIndex]++;
-                }
-              });
-
-              const maxCount = Math.max(...periodCounts, 1);
-              const periods = [
-                { label: "Madrugada", count: periodCounts[0] },
-                { label: "Manhã", count: periodCounts[1] },
-                { label: "Tarde", count: periodCounts[2] },
-                { label: "Noite", count: periodCounts[3] },
-              ];
-
               return (
                 <div className="space-y-4">
-                  <div>
-                    <h4 className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                      Fluxo de Carros por Período
-                    </h4>
-                    <div className="flex items-end justify-between h-20 px-2 border-b border-slate-100 gap-2">
-                      {periods.map((item, idx) => {
-                        const percentage = (item.count / maxCount) * 100;
-                        const visualHeight = item.count > 0 ? `${percentage}%` : "6%";
-                        return (
-                          <div key={idx} className="flex flex-col items-center flex-1 group">
-                            <div className="text-[8px] font-black text-slate-500 mb-1 font-mono">
-                              {item.count}
-                            </div>
-                            <div
-                              style={{ height: visualHeight }}
-                              className={`w-full max-w-[28px] rounded-t-md transition-all duration-300 ${
-                                item.count > 0
-                                  ? "bg-blue-900 shadow-sm shadow-blue-900/10"
-                                  : "bg-slate-150"
-                              }`}
-                            ></div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {/* Graph Labels */}
-                    <div className="flex justify-between text-[8px] font-bold text-slate-400 tracking-wider pt-2 px-1">
-                      {periods.map((item, idx) => (
-                        <span key={idx} className="flex-1 text-center font-bold">
-                          {item.label}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
                   {portAppointments.length > 0 && (
                     <div className="mt-4 border-t border-slate-100 pt-4">
                       <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">
                         Detalhes dos Agendamentos
                       </h4>
                       <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1">
-                        {portAppointments.map((app, idx) => {
+                        {[...portAppointments].sort((a, b) => {
+                          const parseDateStr = (dateStr: string, timeStr: string) => {
+                            let year = 0, month = 0, day = 0;
+                            if (dateStr.includes("-")) {
+                              [year, month, day] = dateStr.split("-").map(Number);
+                            } else if (dateStr.includes("/")) {
+                              [day, month, year] = dateStr.split("/").map(Number);
+                              if (year < 100) year += 2000;
+                            }
+                            const [hour, min] = timeStr ? timeStr.split(":").map(Number) : [0, 0];
+                            return new Date(year, month - 1, day, hour || 0, min || 0).getTime();
+                          };
+                          return parseDateStr(a.date, a.time) - parseDateStr(b.date, b.time);
+                        }).map((app, idx) => {
                           const dateParts = app.date.includes("-") ? app.date.split("-") : app.date.split("/");
                           const formattedDate = dateParts.length === 3 
                             ? (app.date.includes("-") ? `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}` : app.date)

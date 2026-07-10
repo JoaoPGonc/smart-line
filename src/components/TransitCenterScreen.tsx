@@ -195,9 +195,6 @@ export default function TransitCenterScreen({ onNavigate }: TransitCenterScreenP
                           {formatTimeAgo(alert.createdAt)}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 leading-normal font-normal">
-                        {alert.description}
-                      </p>
                       
                       <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-slate-50">
                         <div className="flex items-center gap-1 text-[9px] font-extrabold text-slate-400 uppercase">
@@ -293,9 +290,6 @@ export default function TransitCenterScreen({ onNavigate }: TransitCenterScreenP
                           {formatTimeAgo(alert.createdAt)}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 leading-normal font-normal">
-                        {alert.description}
-                      </p>
                       
                       <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-slate-50">
                         <div className="flex items-center gap-1 text-[9px] font-extrabold text-slate-400 uppercase">
