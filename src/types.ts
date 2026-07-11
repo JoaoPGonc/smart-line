@@ -33,6 +33,7 @@ export interface Appointment {
   portAppointmentId?: string;
   driverNeeds?: {
     stopIntervalHours: number;
+    stopDurationMinutes?: number;
     requiresShower: boolean;
     requiresMeal: boolean;
     requiresSecurity: boolean;
@@ -46,6 +47,7 @@ export interface Appointment {
     date?: string;
     lat: number;
     lng: number;
+    durationMinutes?: number;
   }>;
 }
 

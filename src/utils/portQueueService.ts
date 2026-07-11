@@ -18,7 +18,21 @@ export const BRAZILIAN_PORTS: PortInfo[] = [
   { id: "riogrande", name: "Porto de Rio Grande", state: "RS", type: "Granel/Contêiner", peakHours: [8, 9, 14, 15], baseWaitTime: 75, coords: { lat: -32.033, lng: -52.091 } },
   { id: "suape", name: "Porto de Suape", state: "PE", type: "Líquidos/Contêiner", peakHours: [7, 8, 17, 18], baseWaitTime: 45, coords: { lat: -8.398, lng: -34.957 } },
   { id: "saofrancisco", name: "Porto de São Francisco do Sul", state: "SC", type: "Granel Sólido", peakHours: [6, 7, 14, 15], baseWaitTime: 80, coords: { lat: -26.241, lng: -48.636 } },
-  { id: "tubarao", name: "Porto de Tubarão", state: "ES", type: "Minério/Granel", peakHours: [6, 7, 15, 16], baseWaitTime: 100, coords: { lat: -20.279, lng: -40.239 } }
+  { id: "tubarao", name: "Porto de Tubarão", state: "ES", type: "Minério/Granel", peakHours: [6, 7, 15, 16], baseWaitTime: 100, coords: { lat: -20.279, lng: -40.239 } },
+  { id: "pecem", name: "Porto de Pecém", state: "CE", type: "Granel/Contêiner", peakHours: [6, 7, 16, 17], baseWaitTime: 85, coords: { lat: -3.565, lng: -38.778 } },
+  { id: "itaqui", name: "Porto de Itaqui", state: "MA", type: "Granel/Contêiner", peakHours: [5, 6, 14, 15], baseWaitTime: 90, coords: { lat: -2.496, lng: -44.294 } },
+  { id: "viladoconde", name: "Porto de Vila do Conde", state: "PA", type: "Contêineres/Granel", peakHours: [6, 7, 15, 16], baseWaitTime: 95, coords: { lat: -1.721, lng: -48.674 } },
+  { id: "manaus", name: "Porto de Manaus", state: "AM", type: "Dry Bulk/Contêiner", peakHours: [8, 9, 17, 18], baseWaitTime: 70, coords: { lat: -3.112, lng: -60.035 } },
+  { id: "salvador", name: "Porto de Salvador", state: "BA", type: "Contêineres/Líquidos", peakHours: [7, 8, 16, 17], baseWaitTime: 80, coords: { lat: -12.985, lng: -38.516 } },
+  { id: "riodejaneiro", name: "Porto do Rio de Janeiro", state: "RJ", type: "Contêineres/Multicarga", peakHours: [8, 9, 17, 18], baseWaitTime: 75, coords: { lat: -22.892, lng: -43.153 } },
+  { id: "saosebastiao", name: "Porto de São Sebastião", state: "SP", type: "Contêineres/Granéis", peakHours: [6, 7, 15, 16], baseWaitTime: 85, coords: { lat: -23.858, lng: -45.416 } },
+  { id: "imbituba", name: "Porto de Imbituba", state: "SC", type: "Contêineres/Granel", peakHours: [7, 8, 14, 15], baseWaitTime: 70, coords: { lat: -28.246, lng: -48.664 } },
+  { id: "vitoria", name: "Porto de Vitória", state: "ES", type: "Minério/Contêiner", peakHours: [6, 7, 16, 17], baseWaitTime: 95, coords: { lat: -20.315, lng: -40.312 } },
+  { id: "aratu", name: "Porto de Aratu", state: "BA", type: "Contêineres/Líquidos", peakHours: [6, 7, 15, 16], baseWaitTime: 90, coords: { lat: -12.820, lng: -38.443 } },
+  { id: "cabedelo", name: "Porto de Cabedelo", state: "PB", type: "Contêineres/Multicarga", peakHours: [7, 8, 14, 15], baseWaitTime: 65, coords: { lat: -6.975, lng: -34.821 } },
+  { id: "maceio", name: "Porto de Maceió", state: "AL", type: "Contêineres/Granel", peakHours: [7, 8, 15, 16], baseWaitTime: 70, coords: { lat: -9.665, lng: -35.729 } },
+  { id: "natal", name: "Porto de Natal", state: "RN", type: "Contêineres/Granel", peakHours: [7, 8, 15, 16], baseWaitTime: 70, coords: { lat: -5.771, lng: -35.193 } },
+  { id: "saoluis", name: "Porto de São Luís", state: "MA", type: "Granel/Contêiner", peakHours: [6, 7, 14, 15], baseWaitTime: 80, coords: { lat: -2.511, lng: -44.296 } }
 ];
 
 // Helper to calculate distance

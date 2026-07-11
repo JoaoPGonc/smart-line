@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { Anchor, ShieldCheck, ChevronRight, User, RefreshCw, AlertCircle, Mail, Lock } from "lucide-react";
+import { ShieldCheck, ChevronRight, User, RefreshCw, AlertCircle, Mail, Lock } from "lucide-react";
 import { ScreenId } from "../types";
 import { auth } from "../lib/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
+import anchorLogo from "../assets/anchor-logo.svg";
 
 interface LoginScreenProps {
   onNavigate: (screen: ScreenId) => void;
@@ -58,8 +59,8 @@ export default function LoginScreen({ onNavigate, onLoginDemo }: LoginScreenProp
     <div id="login-screen" className="flex flex-col justify-between h-full bg-slate-50 p-6 font-sans">
       {/* Top Header Logo */}
       <div className="flex flex-col items-center text-center mt-8">
-        <div className="bg-blue-950 p-3.5 rounded-full text-white shadow-lg mb-3">
-          <Anchor className="w-8 h-8" />
+        <div className="bg-blue-950 rounded-full shadow-lg mb-3 w-15 h-15 flex items-center justify-center">
+          <img src={anchorLogo} alt="Logo de âncora" className="w-14 h-14" />
         </div>
         <h1 className="text-xl font-bold tracking-wider text-blue-950 font-sans">
           SMART LINE

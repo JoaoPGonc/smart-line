@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef } from "react";
 import { ScreenId, Appointment } from "../types";
 import BottomNavigation from "./BottomNavigation";
 import { Calendar as CalendarIcon, MapPin, ArrowRight, ArrowLeft, AlertCircle, RefreshCw, Navigation, Trash2, Clock, HelpCircle, X } from "lucide-react";
-import { calculateDynamicStops, parseDurationMinutes, fetchDynamicStopsFromOSM } from "../utils/routeUtils";
+import { calculateDynamicStops, calculateRouteSpanMins, parseDurationMinutes, fetchDynamicStopsFromOSM, reassignStopTimes, OSMRouteStopsResult } from "../utils/routeUtils";
 import { formatAddress } from "../formatDateHelper";
 import { auth } from "../lib/firebase";
-import { logPortAppointment } from "../utils/portQueueService";
+import { BRAZILIAN_PORTS, logPortAppointment } from "../utils/portQueueService";
 
 interface ScheduleScreenProps {
   onNavigate: (screen: ScreenId) => void;
@@ -19,29 +19,7 @@ interface ScheduleScreenProps {
   appointments?: Appointment[];
 }
 
-const PORTS_LIST = [
-  "PORTO DE TUBARÃO - ES",
-  "PORTO DE SANTOS - SP",
-  "PORTO DE PARANAGUÁ - PR",
-  "PORTO DE ITAJAÍ - SC",
-  "PORTO DE RIO GRANDE - RS",
-  "PORTO DE SUAPE - PE",
-  "PORTO DE PECÉM - CE",
-  "PORTO DE ITAQUI - MA",
-  "PORTO DE VILA DO CONDE - PA",
-  "PORTO DE MANAUS - AM",
-  "PORTO DE SALVADOR - BA",
-  "PORTO DO RIO DE JANEIRO - RJ",
-  "PORTO DE SÃO SEBASTIÃO - SP",
-  "PORTO DE IMBITUBA - SC",
-  "PORTO DE SÃO FRANCISCO DO SUL - SC",
-  "PORTO DE VITÓRIA - ES",
-  "PORTO DE ARATU - BA",
-  "PORTO DE CABEDELO - PB",
-  "PORTO DE MACEIÓ - AL",
-  "PORTO DE NATAL - RN",
-  "PORTO DE SÃO LUÍS - MA"
-];
+const PORTS_LIST = BRAZILIAN_PORTS.map(port => `${port.name.toUpperCase()} - ${port.state}`);
 
 export default function ScheduleScreen({ 
   onNavigate, 
@@ -121,18 +99,46 @@ export default function ScheduleScreen({
       setShowDestSuggestions(false);
       return;
     }
-    const filtered = PORTS_LIST.filter(p => p.toLowerCase().includes(val.toLowerCase()));
+
+    const filtered = PORTS_LIST.filter((p) => p.toLowerCase().includes(val.toLowerCase()));
     setDestSuggestions(filtered);
+    setShowDestSuggestions(true);
+  };
+
+  const handleDestFocus = () => {
+    if (destination.trim()) {
+      const filtered = PORTS_LIST.filter((p) => p.toLowerCase().includes(destination.toLowerCase()));
+      setDestSuggestions(filtered);
+    } else {
+      setDestSuggestions(PORTS_LIST);
+    }
     setShowDestSuggestions(true);
   };
 
   const selectDestSuggestion = (port: string) => {
     setDestination(port);
+    const selectedPort = BRAZILIAN_PORTS.find(
+      (p) => `${p.name.toUpperCase()} - ${p.state}` === port
+    );
+    if (selectedPort) {
+      onSetDestCoords({
+        lat: selectedPort.coords.lat,
+        lng: selectedPort.coords.lng,
+        name: port
+      });
+    }
     setShowDestSuggestions(false);
   };
 
+  useEffect(() => {
+    if (destCoords?.name) {
+      setDestination(destCoords.name);
+    }
+  }, [destCoords]);
+
   // Trucker needs states
   const [stopIntervalHours, setStopIntervalHours] = useState<number>(4);
+  const [stopDurationMinutes, setStopDurationMinutes] = useState<number>(30);
   const [requiresShower, setRequiresShower] = useState<boolean>(false);
   const [requiresMeal, setRequiresMeal] = useState<boolean>(false);
   const [requiresSecurity, setRequiresSecurity] = useState<boolean>(false);
@@ -186,6 +192,7 @@ export default function ScheduleScreen({
       `${Math.floor(durationMins / 60)}h ${durationMins % 60}m`,
       {
         stopIntervalHours,
+        stopDurationMinutes,
         requiresShower,
         requiresMeal,
         requiresSecurity,
@@ -193,7 +200,7 @@ export default function ScheduleScreen({
       }
     );
     const stopsCount = dynamicStops.length;
-    const stopsDurationMins = stopsCount * 30; // 30 mins per stop
+    const stopsDurationMins = stopsCount * stopDurationMinutes; // per-stop duration from user
 
     // Traffic delay: simulated delay based on travel distance
     const trafficDelayMins = Math.round(durationMins * 0.12); // 12% traffic delay
@@ -301,6 +308,12 @@ export default function ScheduleScreen({
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
+
+  useEffect(() => {
+    if (destCoords?.name) {
+      setDestination(destCoords.name);
+    }
+  }, [destCoords]);
 
   const handleConfirm = async () => {
     if (!origin.trim()) {
@@ -415,23 +428,30 @@ export default function ScheduleScreen({
       `${hoursPart}h ${minsPart}m`,
       {
         stopIntervalHours,
+        stopDurationMinutes,
         requiresShower,
         requiresMeal,
         requiresSecurity,
         requiresScale,
       }
     );
-    const stopsCount = dynamicStops.length;
-    const stopsDurationMins = stopsCount * 30;
-    const trafficDelayMins = Math.round(durationMins * 0.12);
-    
-    const activeMins = durationMins + stopsDurationMins + trafficDelayMins;
-    const restsCount = Math.floor((Math.max(0, activeMins - 1)) / (8 * 60)); // 1 interjornada rest (11h) per 8h of work
-    const restDurationMins = restsCount * 11 * 60;
-    
-    const totalLeadMins = activeMins + restDurationMins;
-    const totalDurationHoursPart = Math.floor(totalLeadMins / 60);
-    const totalDurationMinsPart = totalLeadMins % 60;
+
+    const totalSpanMins = calculateRouteSpanMins(
+      durationMins,
+      dynamicStops,
+      {
+        stopIntervalHours,
+        stopDurationMinutes,
+        requiresShower,
+        requiresMeal,
+        requiresSecurity,
+        requiresScale,
+      }
+    );
+
+    const totalDurationHoursPart = Math.floor(totalSpanMins / 60);
+    const totalDurationMinsPart = totalSpanMins % 60;
+    const totalLeadMins = totalSpanMins;
 
     let departureHourStr = "11:30";
     let arrivalHourStr = time;
@@ -442,46 +462,90 @@ export default function ScheduleScreen({
       if (!isNaN(ah) && !isNaN(am)) {
         if (date) {
           const [y, m, d] = date.split('-');
-          const dateObj = new Date(Number(y), Number(m)-1, Number(d), ah, am, 0);
-          
-          // Subtract total lead minutes
-          dateObj.setMinutes(dateObj.getMinutes() - totalLeadMins);
-          
-          const depY = dateObj.getFullYear();
-          const depMo = String(dateObj.getMonth() + 1).padStart(2, '0');
-          const depD = String(dateObj.getDate()).padStart(2, '0');
+          const arrivalDateObj = new Date(Number(y), Number(m) - 1, Number(d), ah, am, 0);
+
+          // Subtract the full travel span (driving + stops + traffic + sleep rest) to get departure
+          arrivalDateObj.setMinutes(arrivalDateObj.getMinutes() - totalSpanMins);
+
+          const depY = arrivalDateObj.getFullYear();
+          const depMo = String(arrivalDateObj.getMonth() + 1).padStart(2, '0');
+          const depD = String(arrivalDateObj.getDate()).padStart(2, '0');
           departureDateStr = `${depY}-${depMo}-${depD}`;
 
-          const depH = dateObj.getHours();
-          const depM = dateObj.getMinutes();
+          const depH = arrivalDateObj.getHours();
+          const depM = arrivalDateObj.getMinutes();
           departureHourStr = `${depH.toString().padStart(2, "0")}:${depM.toString().padStart(2, "0")}`;
         } else {
           // Fallback if no date (shouldn't happen as date is required)
           let totalArrivalMins = ah * 60 + am;
-          let departureMins = totalArrivalMins - totalLeadMins;
+          let departureMins = totalArrivalMins - totalSpanMins;
           while (departureMins < 0) departureMins += 24 * 60;
           const depH = Math.floor(departureMins / 60) % 24;
           const depM = departureMins % 60;
           departureHourStr = `${depH.toString().padStart(2, "0")}:${depM.toString().padStart(2, "0")}`;
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Failed to compute departure time', e);
+    }
 
     setLoadingLabel("PROCURANDO PARADAS...");
-    // Recalculate stops with final departureHourStr fetching real OSM gas stations along the corridor!
-    const finalStops = await fetchDynamicStopsFromOSM(
+    // Fetch candidate stops along the real route and assign times using an initial departure estimate.
+    const fetched = await fetchDynamicStopsFromOSM(
       start,
       end,
       departureHourStr,
       `${hoursPart}h ${minsPart}m`,
       {
         stopIntervalHours,
+        stopDurationMinutes,
         requiresShower,
         requiresMeal,
         requiresSecurity,
         requiresScale,
       }
     );
+    let finalStops = fetched.stops;
+    const actualDrivingDurationMins = fetched.routeDurationMins;
+
+    // Recompute departure based on the actual span of the route with the selected stops.
+    const actualSpanMins = calculateRouteSpanMins(actualDrivingDurationMins, finalStops, {
+      stopIntervalHours,
+      stopDurationMinutes,
+      requiresShower,
+      requiresMeal,
+      requiresSecurity,
+      requiresScale,
+    });
+
+    try {
+      const [ah, am] = time.split(":").map(Number);
+      if (!isNaN(ah) && !isNaN(am) && date) {
+        const [y, m, d] = date.split('-');
+        const arrivalDateObj = new Date(Number(y), Number(m) - 1, Number(d), ah, am, 0);
+        arrivalDateObj.setMinutes(arrivalDateObj.getMinutes() - actualSpanMins);
+
+        const depY = arrivalDateObj.getFullYear();
+        const depMo = String(arrivalDateObj.getMonth() + 1).padStart(2, '0');
+        const depD = String(arrivalDateObj.getDate()).padStart(2, '0');
+        departureDateStr = `${depY}-${depMo}-${depD}`;
+
+        const depH = arrivalDateObj.getHours();
+        const depM = arrivalDateObj.getMinutes();
+        departureHourStr = `${depH.toString().padStart(2, "0")}:${depM.toString().padStart(2, "0")}`;
+      }
+    } catch (e) {
+      console.error('Failed to recompute departure from actual route span', e);
+    }
+
+    finalStops = reassignStopTimes(departureHourStr, actualDrivingDurationMins, finalStops, {
+      stopIntervalHours,
+      stopDurationMinutes,
+      requiresShower,
+      requiresMeal,
+      requiresSecurity,
+      requiresScale,
+    });
 
     let currentDaysOffset = 0;
     const [depH, depM] = departureHourStr.split(":").map(Number);
@@ -523,19 +587,20 @@ export default function ScheduleScreen({
       arrivalDate: date,
       time: departureHourStr, // Saved as the suggested departure time!
       estimatedDuration: `${totalDurationHoursPart}h ${totalDurationMinsPart}m`,
-      drivingDuration: `${hoursPart}h ${minsPart}m`,
+      drivingDuration: `${Math.floor(actualDrivingDurationMins / 60)}h ${actualDrivingDurationMins % 60}m`,
       estimatedArrival: arrivalHourStr, // Desired arrival time is stored here
       portQueueTime: queueTime,
       savingsMinutes: 40,
       status: "confirmed",
       driverNeeds: {
         stopIntervalHours,
+        stopDurationMinutes,
         requiresShower,
         requiresMeal,
         requiresSecurity,
         requiresScale,
       },
-      customStops: finalStops,
+      customStops: finalStops.map(s => ({ ...s, durationMinutes: s.durationMinutes ?? stopDurationMinutes })),
     };
     
     if (portAppId) {
@@ -677,26 +742,31 @@ export default function ScheduleScreen({
                 type="text"
                 value={destination}
                 onChange={(e) => handleDestChange(e.target.value)}
-                onFocus={() => { if (destSuggestions.length > 0) setShowDestSuggestions(true); }}
+                onFocus={handleDestFocus}
+                onClick={handleDestFocus}
                 onBlur={() => setTimeout(() => setShowDestSuggestions(false), 200)}
                 className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2.5 px-3.5 text-xs text-slate-700 font-medium focus:outline-none focus:bg-white focus:border-blue-900 transition"
-                placeholder="Digite o endereço, porto ou ponto de chegada"
+                placeholder="Digite ou selecione o porto de chegada"
               />
               {showDestSuggestions && destSuggestions.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-100 shadow-md rounded-xl max-h-48 overflow-y-auto">
+                <div className="absolute z-20 w-full mt-1 bg-white border border-slate-100 shadow-md rounded-xl max-h-48 overflow-y-auto">
                   {destSuggestions.map((port, idx) => (
-                    <div 
-                      key={idx} 
+                    <button
+                      key={idx}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
                       onClick={() => selectDestSuggestion(port)}
-                      className="px-3 py-2 text-[10px] font-bold text-slate-700 hover:bg-slate-50 cursor-pointer border-b border-slate-50 last:border-0"
+                      className="w-full text-left px-3 py-2 text-[10px] font-bold text-slate-700 hover:bg-slate-50 transition border-b border-slate-50 last:border-0"
                     >
                       <MapPin className="w-3 h-3 inline-block mr-1 text-red-400" /> {port}
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
             </div>
           </div>
+
+
 
           {/* Date & Time Row */}
           <div className="grid grid-cols-2 gap-3">
@@ -784,6 +854,23 @@ export default function ScheduleScreen({
                 </button>
               ))}
             </div>
+            {/* Stop Duration Selector (moved here as requested) */}
+            <div className="mt-3">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Duração padrão por parada</label>
+              <div className="grid grid-cols-4 gap-2">
+                {[15, 30, 45, 60].map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setStopDurationMinutes(v)}
+                    className={`py-2 px-1 rounded-xl border text-center transition flex items-center justify-center cursor-pointer ${stopDurationMinutes === v ? "bg-blue-950 border-blue-950 text-white shadow-xs" : "bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100/60"}`}
+                  >
+                    <span className="text-[12px] font-extrabold">{v}m</span>
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-400 mt-2">Você pode editar a duração de cada parada individualmente após gerar a rota.</p>
+            </div>
           </div>
 
           {/* Facility Checkboxes */}
@@ -843,6 +930,7 @@ export default function ScheduleScreen({
               ))}
             </div>
           </div>
+
         </div>
 
         {/* Action Buttons */}

@@ -214,9 +214,11 @@ export default function RouteOverviewScreen({
 
                   <div className="flex justify-between items-start">
                     <div className="pl-2">
-                      <h4 className={`text-xs font-bold transition-all ${isChecked ? "text-slate-800" : "text-slate-400"}`}>
-                        {stop.title}
-                      </h4>
+                      <div className="flex items-center gap-2">
+                        <h4 className={`text-xs font-bold transition-all ${isChecked ? "text-slate-800" : "text-slate-400"}`}>
+                          {stop.title}
+                        </h4>
+                      </div>
                       <p className={`text-[10px] mt-0.5 leading-snug transition-all ${isChecked ? "text-slate-500" : "text-slate-400"}`}>{stop.desc}</p>
                     </div>
                     <div className="text-right shrink-0 flex flex-col items-end">

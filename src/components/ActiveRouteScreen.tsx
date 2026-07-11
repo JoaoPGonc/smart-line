@@ -26,6 +26,9 @@ import {
   getManeuverText,
   formatDistance,
   getDistance,
+  getClosestRoutePointIndex,
+  getRouteDistanceBetweenPoints,
+  snapToRoute,
   OsrmLeg,
   OsrmStep,
 } from "../utils/routeUtils";
@@ -356,10 +359,25 @@ export default function ActiveRouteScreen({
     isNextTargetDest = false;
     const stop = stops[activeStopIndex];
     targetTitle = `PARADA ${activeStopIndex + 1}`;
-    if (userGpsCoords) {
-      targetRemainingKm = Math.round(getDistance(userGpsCoords.lat, userGpsCoords.lng, stop.lat, stop.lng) * 1.25);
+
+    if (routePoints.length > 0) {
+      const currentLat = userGpsCoords?.lat ?? originCoords?.lat;
+      const currentLng = userGpsCoords?.lng ?? originCoords?.lng;
+      if (currentLat !== undefined && currentLng !== undefined) {
+        targetRemainingKm = Math.round(
+          getRouteDistanceBetweenPoints(
+            currentLat,
+            currentLng,
+            stop.lat,
+            stop.lng,
+            routePoints
+          )
+        );
+      }
+    } else if (userGpsCoords) {
+      targetRemainingKm = Math.round(getDistance(userGpsCoords.lat, userGpsCoords.lng, stop.lat, stop.lng));
     } else if (originCoords) {
-      targetRemainingKm = Math.round(getDistance(originCoords.lat, originCoords.lng, stop.lat, stop.lng) * 1.25 * Math.max(0, 1 - progress));
+      targetRemainingKm = Math.round(getDistance(originCoords.lat, originCoords.lng, stop.lat, stop.lng));
     }
   }
 

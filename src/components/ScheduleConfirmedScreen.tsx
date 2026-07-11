@@ -1,15 +1,55 @@
-import React from "react";
+import React, { useState } from "react";
 import { ScreenId, Appointment } from "../types";
 import BottomNavigation from "./BottomNavigation";
 import MapComponent from "./MapComponent";
-import { Check, Clock, ShieldAlert, ArrowRight, HelpCircle, TrafficCone, Compass } from "lucide-react";
+import { Check, Clock, ShieldAlert, ArrowRight, HelpCircle, TrafficCone, Compass, Edit3 } from "lucide-react";
 import { formatDisplayDate, formatAddress } from "../formatDateHelper";
+import { reassignStopTimes, parseDurationMinutes, calculateRouteSpanMins } from "../utils/routeUtils";
+
+// Small inline edit input for duration
+function EditDurationInput({ initialValue, onSave }: { initialValue: number; onSave: (mins: number) => void }) {
+  const [val, setVal] = useState<string>(String(initialValue));
+  const [editing, setEditing] = useState(false);
+
+  return (
+    <div className="flex items-center gap-2">
+      {editing ? (
+        <>
+          <input
+            type="number"
+            min={1}
+            step={5}
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            className="w-20 text-[12px] px-2 py-1 border rounded-md"
+          />
+          <button
+            onClick={() => {
+              const n = Number(val);
+              if (isNaN(n) || n <= 0) return alert("Insira um valor válido em minutos.");
+              onSave(n);
+              setEditing(false);
+            }}
+            className="bg-blue-950 text-white px-3 py-1 rounded-md text-[12px]"
+          >Salvar</button>
+          <button onClick={() => { setVal(String(initialValue)); setEditing(false); }} className="px-2 py-1 rounded-md border text-[12px]">Cancelar</button>
+        </>
+      ) : (
+        <>
+          <div className="text-[12px] text-slate-700 px-3 py-1 rounded-md border bg-slate-50">{val} min</div>
+          <button onClick={() => setEditing(true)} className="px-2 py-1 rounded-md border text-[12px] flex items-center gap-1"><Edit3 className="w-3 h-3" />Editar</button>
+        </>
+      )}
+    </div>
+  );
+}
 
 interface ScheduleConfirmedScreenProps {
   onNavigate: (screen: ScreenId) => void;
   appointment: Appointment | null;
   originCoords?: { lat: number; lng: number; name?: string } | null;
   destCoords?: { lat: number; lng: number; name?: string } | null;
+  onUpdateAppointment?: (updated: Appointment) => void;
 }
 
 export default function ScheduleConfirmedScreen({ 
@@ -17,6 +57,7 @@ export default function ScheduleConfirmedScreen({
   appointment,
   originCoords,
   destCoords
+  , onUpdateAppointment
 }: ScheduleConfirmedScreenProps) {
   // Use fallbacks and robust string checks if no appointment state exists yet
   const originStr = typeof appointment?.origin === "string" ? appointment.origin : "Posto Carreteiro";
@@ -74,16 +115,70 @@ export default function ScheduleConfirmedScreen({
 
             {/* Dynamic Stops */}
             {appointment?.customStops?.map((stop, idx) => (
-              <div key={`stop-${idx}`} className="flex justify-between items-start w-full gap-4">
+              <div
+                key={`stop-${idx}`}
+                className="flex justify-between items-start w-full gap-4 rounded-2xl p-3"
+              >
                 <div className="relative flex-1">
                   <span className="absolute -left-[23px] top-1 w-3 h-3 rounded-full border-2 border-orange-500 bg-white"></span>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">PARADA {idx + 1}</p>
-                  <p className="text-xs font-bold text-slate-700 pr-2 line-clamp-2" title={stop.title}>{stop.title}</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                    PARADA {idx + 1}
+                  </p>
+                  <p className="text-xs font-bold pr-2 line-clamp-2 text-slate-700" title={stop.title}>
+                    {stop.title}
+                  </p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">PREVISÃO</p>
                   <p className="text-xs font-black text-blue-950">{stop.time || "--:--"}</p>
                   <p className="text-[9px] font-bold text-slate-500">{stop.date ? formatDisplayDate(stop.date) : departureDate}</p>
+                  <div className="mt-2 flex items-center justify-end gap-2">
+                    <EditDurationInput
+                      initialValue={stop.durationMinutes ?? appointment?.driverNeeds?.stopDurationMinutes ?? 30}
+                      onSave={(mins: number) => {
+                        if (!appointment) return;
+                        const updated = { ...appointment } as Appointment;
+                        updated.customStops = (updated.customStops || []).map((s, i) => i === idx ? { ...s, durationMinutes: mins } : s);
+
+                        try {
+                          const totalDrivingMins = parseDurationMinutes(updated.drivingDuration || updated.estimatedDuration || "0h 0m");
+
+                          // Recompute route span with the updated stop durations
+                          const newSpanMins = calculateRouteSpanMins(
+                            totalDrivingMins,
+                            updated.customStops || [],
+                            updated.driverNeeds || { stopIntervalHours: 4, requiresShower: false, requiresMeal: false, requiresSecurity: false, requiresScale: false }
+                          );
+
+                          // Derive arrival date/time from the appointment (fallbacks applied)
+                          const arrivalDateRaw = appointment?.arrivalDate || appointment?.date || new Date().toISOString().slice(0, 10);
+                          const arrivalTimeRaw = (appointment?.estimatedArrival || appointment?.time || "00:00").toString().replace("~", "");
+                          const [ay, am, ad] = arrivalDateRaw.split("-");
+                          const [ah, amn] = arrivalTimeRaw.split(":").map(Number);
+                          const arrivalDateObj = new Date(Number(ay), Number(am) - 1, Number(ad), ah || 0, amn || 0, 0);
+
+                          // Subtract the new route span to get the updated departure
+                          arrivalDateObj.setMinutes(arrivalDateObj.getMinutes() - newSpanMins);
+                          const depY = arrivalDateObj.getFullYear();
+                          const depMo = String(arrivalDateObj.getMonth() + 1).padStart(2, '0');
+                          const depD = String(arrivalDateObj.getDate()).padStart(2, '0');
+                          const depH = String(arrivalDateObj.getHours()).padStart(2, '0');
+                          const depM = String(arrivalDateObj.getMinutes()).padStart(2, '0');
+
+                          updated.time = `${depH}:${depM}`;
+                          updated.departureDate = `${depY}-${depMo}-${depD}`;
+
+                          // Reassign exact stop times using the recomputed departure
+                          const recomputed = reassignStopTimes(updated.time, totalDrivingMins, updated.customStops || [], updated.driverNeeds || { stopIntervalHours: 4, requiresShower: false, requiresMeal: false, requiresSecurity: false, requiresScale: false });
+                          updated.customStops = recomputed.map((s, i) => ({ ...s, durationMinutes: updated.customStops?.[i]?.durationMinutes }));
+
+                          if (onUpdateAppointment) onUpdateAppointment(updated);
+                        } catch (e) {
+                          console.error("Recompute departure and stop times failed", e);
+                        }
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
@@ -105,7 +200,6 @@ export default function ScheduleConfirmedScreen({
           </div>
         </div>
 
-        {/* Info Rows */}
         <div className="grid grid-cols-1 gap-2.5">
           {/* Mini Preview Map Card */}
           <div className="rounded-2xl border border-slate-100 shadow-xs overflow-hidden h-40 relative bg-slate-900">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ScreenId } from "../types";
 import BottomNavigation from "./BottomNavigation";
-import { Activity, Clock, TrendingUp, TrendingDown, Minus, ThumbsUp } from "lucide-react";
+import { Activity, Clock, TrendingUp, TrendingDown, Minus, ThumbsUp, MapPin } from "lucide-react";
 import { BRAZILIAN_PORTS, fetchRecentReports, submitQueueReport, calculateEstimatedWaitTime, QueueReport, QueueStatus, findClosestPort, fetchPortAppointments, PortAppointment } from "../utils/portQueueService";
 import { auth } from "../lib/firebase";
 
@@ -14,6 +14,8 @@ export default function PortsScreen({ onNavigate }: PortsScreenProps) {
   
   // States for Caminhoneiros (Truck Queues) Tab
   const [selectedPortId, setSelectedPortId] = useState<string>(BRAZILIAN_PORTS[0].id);
+  const [portSearch, setPortSearch] = useState<string>(`${BRAZILIAN_PORTS[0].name.toUpperCase()} - ${BRAZILIAN_PORTS[0].state}`);
+  const [showPortDropdown, setShowPortDropdown] = useState(false);
   const [portReports, setPortReports] = useState<QueueReport[]>([]);
   const [portAppointments, setPortAppointments] = useState<PortAppointment[]>([]);
   const [isReporting, setIsReporting] = useState(false);
@@ -86,7 +88,15 @@ export default function PortsScreen({ onNavigate }: PortsScreenProps) {
   };
 
   const currentPort = BRAZILIAN_PORTS.find(p => p.id === selectedPortId)!;
+  const filteredPorts = BRAZILIAN_PORTS;
   const currentEstimate = calculateEstimatedWaitTime(currentPort, portReports);
+
+  useEffect(() => {
+    const current = BRAZILIAN_PORTS.find((p) => p.id === selectedPortId);
+    if (current) {
+      setPortSearch(`${current.name.toUpperCase()} - ${current.state}`);
+    }
+  }, [selectedPortId]);
 
   const getStatusColor = (status: QueueStatus) => {
     switch(status) {
@@ -140,15 +150,41 @@ export default function PortsScreen({ onNavigate }: PortsScreenProps) {
           <label className="block text-[9px] font-bold tracking-widest text-slate-400 uppercase mb-1.5">
             Selecione o Porto
           </label>
-          <select 
-            value={selectedPortId}
-            onChange={(e) => setSelectedPortId(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-900"
-          >
-            {BRAZILIAN_PORTS.map(port => (
-              <option key={port.id} value={port.id}>{port.name} - {port.state}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <div
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-bold text-slate-700 focus-within:border-blue-900 transition cursor-pointer"
+              onClick={() => setShowPortDropdown(true)}
+              onBlur={() => setTimeout(() => setShowPortDropdown(false), 200)}
+              tabIndex={0}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span>{portSearch}</span>
+                <span className="text-slate-400 text-xs uppercase tracking-widest">Selecionar</span>
+              </div>
+            </div>
+            {showPortDropdown && (
+              <div className="absolute z-20 w-full mt-2 bg-white border border-slate-200 rounded-3xl shadow-xl max-h-44 overflow-y-auto">
+                {filteredPorts.map((port) => (
+                  <button
+                    key={port.id}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      setSelectedPortId(port.id);
+                      setPortSearch(`${port.name.toUpperCase()} - ${port.state}`);
+                      setShowPortDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-3 border-b last:border-b-0 border-slate-100 hover:bg-slate-50 transition"
+                  >
+                    <div className="flex items-center gap-2 text-[11px] font-bold text-slate-800">
+                      <MapPin className="w-3.5 h-3.5 text-red-500" />
+                      {`${port.name.toUpperCase()} - ${port.state}`}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* AI Estimation Card */}

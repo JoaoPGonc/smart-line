@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
-import L from "leaflet";
+import * as L from "leaflet";
 import { getStopsForRoute, snapToRoute, OsrmLeg } from "../utils/routeUtils";
 import { Compass } from "lucide-react";
 import { TrafficAlert } from "../types";
+
+const routeCache = new Map<string, { routePoints: [number, number][]; legs: OsrmLeg[] }>();
 
 interface MapComponentProps {
   routeMode?: "overview" | "active" | "static";
@@ -301,95 +303,128 @@ export default function MapComponent({
     
     coordsList.push(`${endCoords.lng},${endCoords.lat}`);
     
-    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${coordsList.join(";")}?overview=full&geometries=geojson&steps=true`;
+    const routeKey = coordsList.join(";");
+    const cachedRoute = routeCache.get(routeKey);
 
-    fetch(osrmUrl)
-      .then((res) => {
-        if (!res.ok) throw new Error("OSRM limit reached or network error");
-        return res.json();
-      })
-      .then((data) => {
-        // Guard: If the map component has been unmounted or map destroyed during fetch, return immediately
-        if (!mapInstanceRef.current || mapInstanceRef.current !== map) return;
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${routeKey}?overview=full&geometries=geojson&steps=true`;
 
-        if (data.routes && data.routes[0]) {
-          const rawGeometry = data.routes[0].geometry.coordinates;
-          const routePoints: [number, number][] = rawGeometry.map((pt: [number, number]) => [pt[1], pt[0]] as [number, number]);
+    const processRouteData = (data: any) => {
+      if (!mapInstanceRef.current || mapInstanceRef.current !== map) return;
 
-          routePointsRef.current = routePoints;
+      if (data.routes && data.routes[0]) {
+        const rawGeometry = data.routes[0].geometry.coordinates;
+        const routePoints: [number, number][] = rawGeometry.map((pt: [number, number]) => [pt[1], pt[0]] as [number, number]);
 
-          // Draw high contrast outer glowing line
-          const polyline = L.polyline(routePoints, {
-            color: "#2563eb",
-            weight: 5,
-            opacity: 0.85,
-            lineCap: "round",
-            lineJoin: "round"
-          }).addTo(map);
+        routePointsRef.current = routePoints;
+        routeCache.set(routeKey, { routePoints, legs: data.routes[0].legs ?? [] });
 
-          // Inner glowing fine path
-          const polylineGlow = L.polyline(routePoints, {
-            color: "#60a5fa",
-            weight: 2,
-            opacity: 0.95,
-            lineCap: "round",
-            lineJoin: "round"
-          }).addTo(map);
+        // Draw high contrast outer glowing line
+        const polyline = L.polyline(routePoints, {
+          color: "#2563eb",
+          weight: 5,
+          opacity: 0.85,
+          lineCap: "round",
+          lineJoin: "round"
+        }).addTo(map);
 
-          routePolylineRef.current = polyline;
-          routePolylineGlowRef.current = polylineGlow;
-
-          // Draw stops snapped directly onto the calculated road route!
-          drawStops(routePoints);
-
-          // Expose route data (polyline + OSRM steps) to parent for real GPS navigation
-          const legs: OsrmLeg[] = data.routes[0].legs ?? [];
-          if (onRouteReady) {
-            onRouteReady(routePoints, legs);
-          }
-
-          // Place initial truck if active
-          if (routeMode === "active") {
-            updateTruckPosition(map, routePoints);
-          }
-        } else {
-          throw new Error("No route coordinates returned");
-        }
-      })
-      .catch((err) => {
-        // Guard: If the map component has been unmounted or map destroyed during fetch, return immediately
-        if (!mapInstanceRef.current || mapInstanceRef.current !== map) return;
-
-        console.warn("Falling back to direct geodesic route polyline:", err);
-        const fallbackPoints: [number, number][] = [
-          [startCoords.lat, startCoords.lng],
-          [endCoords.lat, endCoords.lng]
-        ];
-        routePointsRef.current = fallbackPoints;
-
-        const polyline = L.polyline(fallbackPoints, {
-          color: "#dc2626",
-          weight: 4,
-          opacity: 0.75,
-          dashArray: "6, 8",
-          lineCap: "round"
+        // Inner glowing fine path
+        const polylineGlow = L.polyline(routePoints, {
+          color: "#60a5fa",
+          weight: 2,
+          opacity: 0.95,
+          lineCap: "round",
+          lineJoin: "round"
         }).addTo(map);
 
         routePolylineRef.current = polyline;
+        routePolylineGlowRef.current = polylineGlow;
 
-        // Draw stops with straight line interpolation!
-        drawStops(fallbackPoints);
+        // Draw stops snapped directly onto the calculated road route!
+        drawStops(routePoints);
 
+        // Expose route data (polyline + OSRM steps) to parent for real GPS navigation
+        const legs: OsrmLeg[] = data.routes[0].legs ?? [];
+        if (onRouteReady) {
+          onRouteReady(routePoints, legs);
+        }
+
+        // Place initial truck if active
         if (routeMode === "active") {
-          updateTruckPosition(map, fallbackPoints);
+          updateTruckPosition(map, routePoints);
         }
-      })
-      .finally(() => {
-        // Guard: Only update state if the map component is still mounted and using the same map instance
-        if (mapInstanceRef.current && mapInstanceRef.current === map) {
-          setLoadingRoute(false);
-        }
-      });
+      } else {
+        throw new Error("No route coordinates returned");
+      }
+    };
+
+    if (cachedRoute) {
+      setLoadingRoute(false);
+      routePointsRef.current = cachedRoute.routePoints;
+
+      const polyline = L.polyline(cachedRoute.routePoints, {
+        color: "#2563eb",
+        weight: 5,
+        opacity: 0.85,
+        lineCap: "round",
+        lineJoin: "round"
+      }).addTo(map);
+
+      const polylineGlow = L.polyline(cachedRoute.routePoints, {
+        color: "#60a5fa",
+        weight: 2,
+        opacity: 0.95,
+        lineCap: "round",
+        lineJoin: "round"
+      }).addTo(map);
+
+      routePolylineRef.current = polyline;
+      routePolylineGlowRef.current = polylineGlow;
+      drawStops(cachedRoute.routePoints);
+
+      if (onRouteReady) {
+        onRouteReady(cachedRoute.routePoints, cachedRoute.legs);
+      }
+      if (routeMode === "active") {
+        updateTruckPosition(map, cachedRoute.routePoints);
+      }
+    } else {
+      fetch(osrmUrl)
+        .then((res) => {
+          if (!res.ok) throw new Error("OSRM limit reached or network error");
+          return res.json();
+        })
+        .then(processRouteData)
+        .catch((err) => {
+          if (!mapInstanceRef.current || mapInstanceRef.current !== map) return;
+
+          console.warn("Falling back to direct geodesic route polyline:", err);
+          const fallbackPoints: [number, number][] = [
+            [startCoords.lat, startCoords.lng],
+            [endCoords.lat, endCoords.lng]
+          ];
+          routePointsRef.current = fallbackPoints;
+
+          const polyline = L.polyline(fallbackPoints, {
+            color: "#dc2626",
+            weight: 4,
+            opacity: 0.75,
+            dashArray: "6, 8",
+            lineCap: "round"
+          }).addTo(map);
+
+          routePolylineRef.current = polyline;
+          drawStops(fallbackPoints);
+
+          if (routeMode === "active") {
+            updateTruckPosition(map, fallbackPoints);
+          }
+        })
+        .finally(() => {
+          if (mapInstanceRef.current && mapInstanceRef.current === map) {
+            setLoadingRoute(false);
+          }
+        });
+    }
 
     const handleResize = () => {
       if (mapInstanceRef.current) {

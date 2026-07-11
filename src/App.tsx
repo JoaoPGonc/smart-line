@@ -381,6 +381,15 @@ export default function App() {
             appointment={appointment}
             originCoords={originCoords}
             destCoords={destCoords}
+            onUpdateAppointment={(updated) => {
+              setAppointments(prev => {
+                const next = [...prev];
+                if (activeIndex !== null && activeIndex >= 0 && activeIndex < next.length) {
+                  next[activeIndex] = updated;
+                }
+                return next;
+              });
+            }}
           />
         );
       case ScreenId.ViewRouteMap:

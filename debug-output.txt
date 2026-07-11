@@ -1,0 +1,119 @@
+Running sample...
+[assignStopTimesWithRest] stop id=osm-fallback-1 progress=0.12860576923076922 segmentProgress=0.12860576923076922
+[assignStopTimesWithRest] drivingMins=214 trafficMins=26 arrivalAbs=323 currentAbs=83
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-1 time=05:23 departureAfterStop=353
+[assignStopTimesWithRest] stop id=osm-fallback-2 progress=0.16666666666666666 segmentProgress=0.03806089743589744
+[assignStopTimesWithRest] drivingMins=63 trafficMins=8 arrivalAbs=424 currentAbs=353
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-2 time=07:04 departureAfterStop=454
+[assignStopTimesWithRest] stop id=osm-fallback-3 progress=0.25721153846153844 segmentProgress=0.09054487179487178
+[assignStopTimesWithRest] drivingMins=151 trafficMins=18 arrivalAbs=623 currentAbs=454
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-3 time=10:23 departureAfterStop=653
+[assignStopTimesWithRest] stop id=osm-fallback-4 progress=0.3333333333333333 segmentProgress=0.07612179487179488
+[assignStopTimesWithRest] drivingMins=127 trafficMins=15 arrivalAbs=795 currentAbs=653
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-4 time=13:15 departureAfterStop=825
+[assignStopTimesWithRest] stop id=osm-fallback-5 progress=0.3858173076923077 segmentProgress=0.052483974358974395
+[assignStopTimesWithRest] drivingMins=87 trafficMins=10 arrivalAbs=922 currentAbs=825
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-5 time=15:22 departureAfterStop=952
+[assignStopTimesWithRest] stop id=osm-fallback-6 progress=0.5144230769230769 segmentProgress=0.12860576923076916
+[assignStopTimesWithRest] drivingMins=214 trafficMins=26 arrivalAbs=1192 currentAbs=952
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-6 time=19:52 departureAfterStop=1222
+[assignStopTimesWithRest] stop id=osm-fallback-7 progress=0.53 segmentProgress=0.015576923076923155
+[assignStopTimesWithRest] drivingMins=26 trafficMins=3 arrivalAbs=1251 currentAbs=1222
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] sleep stop assigned at id=osm-fallback-7 arrivalAbs=1251 sleepFromAbs=1320 sleepToAbs=1800 departureAfterStop=1800
+[assignStopTimesWithRest] pushed stop id=osm-fallback-7 time=20:51 departureAfterStop=1800
+[assignStopTimesWithRest] stop id=osm-fallback-8 progress=0.5985576923076923 segmentProgress=0.06855769230769226
+[assignStopTimesWithRest] drivingMins=114 trafficMins=14 arrivalAbs=1928 currentAbs=1800
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=true
+[assignStopTimesWithRest] sleep stop assigned at id=osm-fallback-8 arrivalAbs=1928 sleepFromAbs=2760 sleepToAbs=3240 departureAfterStop=3240
+[assignStopTimesWithRest] pushed stop id=osm-fallback-8 time=08:08 departureAfterStop=3240
+[assignStopTimesWithRest] stop id=osm-fallback-9 progress=0.6666666666666666 segmentProgress=0.06810897435897434
+[assignStopTimesWithRest] drivingMins=113 trafficMins=14 arrivalAbs=3367 currentAbs=3240
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-9 time=08:07 departureAfterStop=3397
+[assignStopTimesWithRest] stop id=osm-fallback-10 progress=0.7271634615384616 segmentProgress=0.060496794871794934
+[assignStopTimesWithRest] drivingMins=101 trafficMins=12 arrivalAbs=3510 currentAbs=3397
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-10 time=10:30 departureAfterStop=3540
+[assignStopTimesWithRest] stop id=osm-fallback-11 progress=0.8333333333333334 segmentProgress=0.1061698717948718
+[assignStopTimesWithRest] drivingMins=177 trafficMins=21 arrivalAbs=3738 currentAbs=3540
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-11 time=14:18 departureAfterStop=3768
+routeDurationMins 1664
+stops count 11
+stop 1: osm-fallback-1 05:23 sleep= false progress= 0.12860576923076922 dur= undefined
+stop 2: osm-fallback-2 07:04 sleep= false progress= 0.16666666666666666 dur= undefined
+stop 3: osm-fallback-3 10:23 sleep= false progress= 0.25721153846153844 dur= undefined
+stop 4: osm-fallback-4 13:15 sleep= false progress= 0.3333333333333333 dur= undefined
+stop 5: osm-fallback-5 15:22 sleep= false progress= 0.3858173076923077 dur= undefined
+stop 6: osm-fallback-6 19:52 sleep= false progress= 0.5144230769230769 dur= undefined
+stop 7: osm-fallback-7 22:00 sleep= true progress= 0.53 dur= undefined
+stop 8: osm-fallback-8 22:00 sleep= true progress= 0.5985576923076923 dur= undefined
+stop 9: osm-fallback-9 08:07 sleep= false progress= 0.6666666666666666 dur= undefined
+stop 10: osm-fallback-10 10:30 sleep= false progress= 0.7271634615384616 dur= undefined
+stop 11: osm-fallback-11 14:18 sleep= false progress= 0.8333333333333334 dur= undefined
+routeSpan 4078 67 58
+[assignStopTimesWithRest] stop id=osm-fallback-1 progress=0.12860576923076922 segmentProgress=0.12860576923076922
+[assignStopTimesWithRest] drivingMins=214 trafficMins=26 arrivalAbs=323 currentAbs=83
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-1 time=05:23 departureAfterStop=353
+[assignStopTimesWithRest] stop id=osm-fallback-2 progress=0.16666666666666666 segmentProgress=0.03806089743589744
+[assignStopTimesWithRest] drivingMins=63 trafficMins=8 arrivalAbs=424 currentAbs=353
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-2 time=07:04 departureAfterStop=454
+[assignStopTimesWithRest] stop id=osm-fallback-3 progress=0.25721153846153844 segmentProgress=0.09054487179487178
+[assignStopTimesWithRest] drivingMins=151 trafficMins=18 arrivalAbs=623 currentAbs=454
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-3 time=10:23 departureAfterStop=653
+[assignStopTimesWithRest] stop id=osm-fallback-4 progress=0.3333333333333333 segmentProgress=0.07612179487179488
+[assignStopTimesWithRest] drivingMins=127 trafficMins=15 arrivalAbs=795 currentAbs=653
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-4 time=13:15 departureAfterStop=825
+[assignStopTimesWithRest] stop id=osm-fallback-5 progress=0.3858173076923077 segmentProgress=0.052483974358974395
+[assignStopTimesWithRest] drivingMins=87 trafficMins=10 arrivalAbs=922 currentAbs=825
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-5 time=15:22 departureAfterStop=952
+[assignStopTimesWithRest] stop id=osm-fallback-6 progress=0.5144230769230769 segmentProgress=0.12860576923076916
+[assignStopTimesWithRest] drivingMins=214 trafficMins=26 arrivalAbs=1192 currentAbs=952
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-6 time=19:52 departureAfterStop=1222
+[assignStopTimesWithRest] stop id=osm-fallback-7 progress=0.53 segmentProgress=0.015576923076923155
+[assignStopTimesWithRest] drivingMins=26 trafficMins=3 arrivalAbs=1251 currentAbs=1222
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=true
+[assignStopTimesWithRest] sleep stop assigned at id=osm-fallback-7 arrivalAbs=1251 sleepFromAbs=1320 sleepToAbs=1800 departureAfterStop=1800
+[assignStopTimesWithRest] pushed stop id=osm-fallback-7 time=20:51 departureAfterStop=1800
+[assignStopTimesWithRest] stop id=osm-fallback-8 progress=0.5985576923076923 segmentProgress=0.06855769230769226
+[assignStopTimesWithRest] drivingMins=114 trafficMins=14 arrivalAbs=1928 currentAbs=1800
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=true
+[assignStopTimesWithRest] sleep stop assigned at id=osm-fallback-8 arrivalAbs=1928 sleepFromAbs=2760 sleepToAbs=3240 departureAfterStop=3240
+[assignStopTimesWithRest] pushed stop id=osm-fallback-8 time=08:08 departureAfterStop=3240
+[assignStopTimesWithRest] stop id=osm-fallback-9 progress=0.6666666666666666 segmentProgress=0.06810897435897434
+[assignStopTimesWithRest] drivingMins=113 trafficMins=14 arrivalAbs=3367 currentAbs=3240
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-9 time=08:07 departureAfterStop=3397
+[assignStopTimesWithRest] stop id=osm-fallback-10 progress=0.7271634615384616 segmentProgress=0.060496794871794934
+[assignStopTimesWithRest] drivingMins=101 trafficMins=12 arrivalAbs=3510 currentAbs=3397
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-10 time=10:30 departureAfterStop=3540
+[assignStopTimesWithRest] stop id=osm-fallback-11 progress=0.8333333333333334 segmentProgress=0.1061698717948718
+[assignStopTimesWithRest] drivingMins=177 trafficMins=21 arrivalAbs=3738 currentAbs=3540
+[assignStopTimesWithRest] initial stopDuration=30 isSleepStopFlag=false
+[assignStopTimesWithRest] pushed stop id=osm-fallback-11 time=14:18 departureAfterStop=3768
+reassign
+stop 1: osm-fallback-1 05:23 sleep= false
+stop 2: osm-fallback-2 07:04 sleep= false
+stop 3: osm-fallback-3 10:23 sleep= false
+stop 4: osm-fallback-4 13:15 sleep= false
+stop 5: osm-fallback-5 15:22 sleep= false
+stop 6: osm-fallback-6 19:52 sleep= false
+stop 7: osm-fallback-7 22:00 sleep= true
+stop 8: osm-fallback-8 22:00 sleep= true
+stop 9: osm-fallback-9 08:07 sleep= false
+stop 10: osm-fallback-10 10:30 sleep= false
+stop 11: osm-fallback-11 14:18 sleep= false

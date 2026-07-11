@@ -6,6 +6,8 @@ export interface Stopover {
   date?: string;
   lat: number;
   lng: number;
+  progress?: number;
+  durationMinutes?: number;
 }
 
 // ─── OSRM Route Types ────────────────────────────────────────────────────────
@@ -79,6 +81,50 @@ export const getDistanceAlongPolyline = (
   for (let i = fromIndex; i < end; i++) {
     total += getDistance(points[i][0], points[i][1], points[i + 1][0], points[i + 1][1]);
   }
+  return total;
+};
+
+export const getClosestRoutePointIndex = (
+  lat: number,
+  lng: number,
+  routePoints: [number, number][]
+): number => {
+  let minDist = Infinity;
+  let closestIndex = 0;
+  for (let i = 0; i < routePoints.length; i++) {
+    const d = getDistance(lat, lng, routePoints[i][0], routePoints[i][1]);
+    if (d < minDist) {
+      minDist = d;
+      closestIndex = i;
+    }
+  }
+  return closestIndex;
+};
+
+export const getRouteDistanceBetweenPoints = (
+  fromLat: number,
+  fromLng: number,
+  toLat: number,
+  toLng: number,
+  routePoints: [number, number][]
+): number => {
+  if (!routePoints || routePoints.length === 0) {
+    return getDistance(fromLat, fromLng, toLat, toLng);
+  }
+
+  const fromIndex = getClosestRoutePointIndex(fromLat, fromLng, routePoints);
+  const toIndex = getClosestRoutePointIndex(toLat, toLng, routePoints);
+
+  let total = 0;
+  total += getDistance(fromLat, fromLng, routePoints[fromIndex][0], routePoints[fromIndex][1]);
+
+  if (fromIndex <= toIndex) {
+    total += getDistanceAlongPolyline(routePoints, fromIndex, toIndex);
+  } else {
+    total += getDistanceAlongPolyline(routePoints, toIndex, fromIndex);
+  }
+
+  total += getDistance(routePoints[toIndex][0], routePoints[toIndex][1], toLat, toLng);
   return total;
 };
 
@@ -173,8 +219,36 @@ export const formatDistance = (metres: number): string => {
   return `${(metres / 1000).toFixed(1).replace(".", ",")} km`;
 };
 
+export const parseTimeToMinutes = (time: string): number => {
+  const [h, m] = time.split(":").map(Number);
+  if (isNaN(h) || isNaN(m)) return 0;
+  return h * 60 + m;
+};
+
+export const normalizeAbsoluteStopMinutes = (stops: Stopover[]): number[] => {
+  const absolute: number[] = [];
+  let dayOffset = 0;
+  let previous = -1;
+
+  for (const stop of stops) {
+    const mins = parseTimeToMinutes(stop.time);
+    if (previous !== -1 && mins < previous) {
+      dayOffset += 24 * 60;
+    }
+    absolute.push(mins + dayOffset);
+    previous = mins;
+  }
+
+  return absolute;
+};
+
+export const getMinutesToTargetDistance = (progress: number, totalDurationMins: number): number => {
+  return Math.round(progress * totalDurationMins);
+};
+
 export interface DriverNeeds {
   stopIntervalHours: number;
+  stopDurationMinutes?: number;
   requiresShower: boolean;
   requiresMeal: boolean;
   requiresSecurity: boolean;
@@ -553,18 +627,41 @@ export const getStopsForRoute = (destination: string, getStopTime: (percent: num
 export const parseDurationMinutes = (durStr: string) => {
   let total = 275; // default fallback 4h 35m
   try {
+    if (!durStr) return total;
+    // ISO8601 duration like PT3H20M15S
+    const iso = durStr.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+    if (iso) {
+      const h = parseInt(iso[1] || '0');
+      const m = parseInt(iso[2] || '0');
+      const s = parseInt(iso[3] || '0');
+      total = h * 60 + m + Math.round(s / 60);
+      return total;
+    }
+
+    // human readable like "3h 20m" or "3h"
     const match = durStr.match(/(\d+)h\s*(\d+)m/);
     if (match) {
       total = parseInt(match[1]) * 60 + parseInt(match[2]);
-    } else {
-      const hMatch = durStr.match(/(\d+)h/);
-      if (hMatch) total = parseInt(hMatch[1]) * 60;
+      return total;
+    }
+    const hMatch = durStr.match(/(\d+)h/);
+    if (hMatch) {
+      total = parseInt(hMatch[1]) * 60;
+      return total;
+    }
+
+    // numeric seconds string (e.g. "12345" or "12345s")
+    const secMatch = durStr.match(/^(\d+)(?:s)?$/);
+    if (secMatch) {
+      const secs = parseInt(secMatch[1]);
+      total = Math.round(secs / 60);
+      return total;
     }
   } catch (e) {}
   return total;
 };
 
-export const computeStopTime = (startTime: string, durMins: number, percent: number, stopIndex?: number) => {
+export const computeStopTime = (startTime: string, durMins: number, percent: number, stopIndex?: number, stopDurationMinutes = 30) => {
   try {
     const [h, m] = startTime.split(":").map(Number);
     if (!isNaN(h) && !isNaN(m)) {
@@ -572,7 +669,7 @@ export const computeStopTime = (startTime: string, durMins: number, percent: num
       const trafficMins = Math.round(drivingMins * 0.12);
       
       const index = stopIndex !== undefined ? stopIndex : Math.max(0, Math.floor(percent * 3) - 1);
-      const previousStopsMins = index * 30;
+      const previousStopsMins = index * stopDurationMinutes;
       
       const activeMins = drivingMins + trafficMins + previousStopsMins;
       const restsCount = Math.floor((Math.max(0, activeMins - 1)) / (8 * 60));
@@ -587,6 +684,51 @@ export const computeStopTime = (startTime: string, durMins: number, percent: num
     }
   } catch (e) {}
   return "";
+};
+
+
+const formatAbsoluteTime = (absoluteMinutes: number): string => {
+  const minutesOfDay = ((absoluteMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
+  const resultH = Math.floor(minutesOfDay / 60);
+  const resultM = minutesOfDay % 60;
+  return `${resultH.toString().padStart(2, "0")}:${resultM.toString().padStart(2, "0")}`;
+};
+
+const getStopDurationMinutes = (stop: Stopover, needs: DriverNeeds): number => {
+  return stop.durationMinutes ?? needs.stopDurationMinutes ?? 30;
+};
+
+const assignStopTimesWithRest = (
+  departureTime: string,
+  totalDurationMins: number,
+  stops: Stopover[],
+  needs: DriverNeeds
+): Stopover[] => {
+  const departureAbs = parseTimeToMinutes(departureTime);
+  let currentAbs = departureAbs;
+  let currentProgress = 0;
+  const result: Stopover[] = [];
+
+  for (const stop of stops) {
+    const progress = stop.progress ?? 1;
+    const segmentProgress = Math.max(0, progress - currentProgress);
+    const drivingMins = Math.round(totalDurationMins * segmentProgress);
+    const trafficMins = Math.round(drivingMins * 0.12);
+    const arrivalAbs = currentAbs + drivingMins + trafficMins;
+
+    const stopDuration = getStopDurationMinutes(stop, needs);
+    const departureAfterStop = arrivalAbs + stopDuration;
+
+    result.push({
+      ...stop,
+      time: formatAbsoluteTime(arrivalAbs),
+    });
+
+    currentAbs = departureAfterStop;
+    currentProgress = progress;
+  }
+
+  return result;
 };
 
 // Main dynamic stops calculation based on driver needs and distance
@@ -642,7 +784,7 @@ export const calculateDynamicStops = (
   const interval = needs.stopIntervalHours || 4;
   let targetStopsCount = Math.floor(durationHours / interval);
 
-  // Ensure at least 1 stop if distance is substantial and the trucker requested specific facilities
+  // Ensure at least 1 stop if distance is substantial and the trucker requested specific facilities or sleep planning
   if (targetStopsCount === 0 && durationHours > 1.5) {
     targetStopsCount = 1;
   }
@@ -656,47 +798,53 @@ export const calculateDynamicStops = (
 
   // 4. Distribute stops evenly along the route list
   const selectedStops: Stopover[] = [];
-  
+
   if (targetStopsCount === 1) {
-    // Pick the highest scoring stop around the middle (30% to 70% of distance)
     const midPointCandidates = scoredCandidates.filter(c => {
       const distFraction = getDistance(start.lat, start.lng, c.lat, c.lng) / totalDist;
       return distFraction > 0.25 && distFraction < 0.75;
     });
-    
     const pool = midPointCandidates.length > 0 ? midPointCandidates : scoredCandidates;
-    // Sort by score
     const best = [...pool].sort((a, b) => b.score - a.score)[0];
-    selectedStops.push({
-      id: best.id,
-      title: best.title,
-      desc: best.desc,
-      lat: best.lat,
-      lng: best.lng,
-      time: ""
-    });
-  } else {
-    // Divide into targetStopsCount sectors and select the best scoring candidate from each sector
-    for (let s = 0; s < targetStopsCount; s++) {
-      const minFraction = s / targetStopsCount;
-      const maxFraction = (s + 1) / targetStopsCount;
-
-      const sectorPool = scoredCandidates.filter(c => {
-        const distFraction = getDistance(start.lat, start.lng, c.lat, c.lng) / totalDist;
-        return distFraction >= minFraction && distFraction <= maxFraction;
+    if (best) {
+      selectedStops.push({
+        id: best.id,
+        title: best.title,
+        desc: best.desc,
+        lat: best.lat,
+        lng: best.lng,
+        time: ""
       });
+    }
+  } else {
+    // Select stops based on time intervals (respecting the chosen rest frequency)
+    const intervalMins = (needs.stopIntervalHours || 4) * 60;
+    const usedIds = new Set<string>(selectedStops.map(s => s.id));
+    for (let i = 1; i <= targetStopsCount; i++) {
+      const targetTimeMins = Math.min(i * intervalMins, totalDurationMins - 1);
+      const targetFraction = targetTimeMins / totalDurationMins;
 
-      const pool = sectorPool.length > 0 ? sectorPool : scoredCandidates;
-      const best = [...pool].sort((a, b) => b.score - a.score)[0];
-      
-      // Prevent duplicates
-      if (best && !selectedStops.some(item => item.id === best.id)) {
+      // pick candidate closest in progress to targetFraction, with tie-breaker by score
+      let bestCandidate: any = null;
+      let bestScoreMetric = Infinity;
+      for (const c of scoredCandidates) {
+        const progress = getDistance(start.lat, start.lng, c.lat, c.lng) / totalDist;
+        const fracDiff = Math.abs(progress - targetFraction);
+        const metric = fracDiff - (c.score || 0) * 0.001; // prefer higher score slightly
+        if (metric < bestScoreMetric && !usedIds.has(c.id)) {
+          bestScoreMetric = metric;
+          bestCandidate = c;
+        }
+      }
+
+      if (bestCandidate) {
+        usedIds.add(bestCandidate.id);
         selectedStops.push({
-          id: best.id,
-          title: best.title,
-          desc: best.desc,
-          lat: best.lat,
-          lng: best.lng,
+          id: bestCandidate.id,
+          title: bestCandidate.title,
+          desc: bestCandidate.desc,
+          lat: bestCandidate.lat,
+          lng: bestCandidate.lng,
           time: ""
         });
       }
@@ -723,14 +871,50 @@ export const calculateDynamicStops = (
   });
 
   // 5. Calculate estimated arrival times at each selected stop
-  return selectedStops.map((stop, index) => {
-    const distFraction = getDistance(start.lat, start.lng, stop.lat, stop.lng) / totalDist;
-    const stopTime = computeStopTime(departureTime, totalDurationMins, distFraction, index);
-    return {
-      ...stop,
-      time: stopTime
-    };
-  });
+  const stopsWithProgress = selectedStops.map((stop) => ({
+    ...stop,
+    progress: getDistance(start.lat, start.lng, stop.lat, stop.lng) / totalDist,
+  }));
+
+  return assignStopTimesWithRest(departureTime, totalDurationMins, stopsWithProgress, needs);
+};
+
+// Reassign times helper (exported) so callers can recompute times after per-stop duration changes
+export const reassignStopTimes = (
+  departureTime: string,
+  totalDurationMins: number,
+  stops: Stopover[],
+  needs: DriverNeeds
+): Stopover[] => {
+  return assignStopTimesWithRest(departureTime, totalDurationMins, stops, needs);
+};
+
+export const calculateRouteSpanMins = (
+  totalDurationMins: number,
+  stops: Stopover[],
+  needs: DriverNeeds,
+  departureTime = "00:00"
+): number => {
+  const departureAbs = parseTimeToMinutes(departureTime);
+  let currentAbs = departureAbs;
+  let currentProgress = 0;
+
+  for (const stop of stops) {
+    const progress = stop.progress ?? 1;
+    const segmentProgress = Math.max(0, progress - currentProgress);
+    const drivingMins = Math.round(totalDurationMins * segmentProgress);
+    const trafficMins = Math.round(drivingMins * 0.12);
+    const arrivalAbs = currentAbs + drivingMins + trafficMins;
+
+    const stopDuration = getStopDurationMinutes(stop, needs);
+    currentAbs = arrivalAbs + stopDuration;
+    currentProgress = progress;
+  }
+
+  const finalSegmentProgress = Math.max(0, 1 - currentProgress);
+  const finalDrivingMins = Math.round(totalDurationMins * finalSegmentProgress);
+  const finalTrafficMins = Math.round(finalDrivingMins * 0.12);
+  return currentAbs - departureAbs + finalDrivingMins + finalTrafficMins;
 };
 
 // Snap any off-road coordinates to the closest point on the computed OSRM route path
@@ -753,6 +937,11 @@ export const snapToRoute = (
   return closestPoint;
 };
 
+export interface OSMRouteStopsResult {
+  stops: Stopover[];
+  routeDurationMins: number;
+}
+
 // Fetch real points of interest (gas stations) along the route dynamically using OSRM + OpenStreetMap Overpass
 export const fetchDynamicStopsFromOSM = async (
   start: { lat: number; lng: number },
@@ -760,35 +949,62 @@ export const fetchDynamicStopsFromOSM = async (
   departureTime: string,
   estimatedDuration: string,
   needs: DriverNeeds
-): Promise<Stopover[]> => {
-  const totalDurationMins = parseDurationMinutes(estimatedDuration);
-  const durationHours = totalDurationMins / 60;
+): Promise<OSMRouteStopsResult> => {
+  const estimatedDurationMins = parseDurationMinutes(estimatedDuration);
+  const departureAbs = parseTimeToMinutes(departureTime);
 
-  const interval = needs.stopIntervalHours || 4;
-  let targetStopsCount = Math.floor(durationHours / interval);
-  if (targetStopsCount === 0 && durationHours > 1.5) {
-    targetStopsCount = 1;
-  }
-  if (needs.requiresShower || needs.requiresMeal || needs.requiresSecurity || needs.requiresScale) {
-    targetStopsCount = Math.max(targetStopsCount, 1);
-  }
+  const computeTargetStopsCount = (durationMins: number) => {
+    const durationHours = durationMins / 60;
+    const interval = needs.stopIntervalHours || 4;
+    let count = Math.floor(durationHours / interval);
+    if (count === 0 && durationHours > 1.5) {
+      count = 1;
+    }
+    if (needs.requiresShower || needs.requiresMeal || needs.requiresSecurity || needs.requiresScale) {
+      count = Math.max(count, 1);
+    }
+    return count;
+  };
 
-  if (targetStopsCount === 0) {
-    return [];
-  }
+  const buildStopFractions = (routeDurationMins: number, targetStopsCount: number) => {
+    return Array.from({ length: targetStopsCount }, (_, index) => ({
+      fraction: Math.min(0.99, (index + 1) / (targetStopsCount + 1)),
+    }));
+  };
 
-  const stops: Stopover[] = [];
-
+  let osrmRouteDurationMins = estimatedDurationMins;
+  let routeCoords: [number, number][] = [];
   try {
     // 1. Fetch real route geometry from OSRM
     const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?geometries=geojson&overview=full`;
     const osrmRes = await fetch(osrmUrl);
     if (!osrmRes.ok) throw new Error("OSRM API error");
     const osrmData = await osrmRes.json();
-    
-    let routeCoords = osrmData.routes?.[0]?.geometry?.coordinates;
-    if (!routeCoords || routeCoords.length < 2) throw new Error("Invalid OSRM geometry");
 
+    osrmRouteDurationMins = Math.round((osrmData.routes?.[0]?.duration ?? 0) / 60);
+    const coords = osrmData.routes?.[0]?.geometry?.coordinates;
+    if (!coords || coords.length < 2) throw new Error("Invalid OSRM geometry");
+    routeCoords = coords as [number, number][];
+  } catch (err) {
+    console.warn("Error fetching real route from OSRM, using robust local geometry fallback:", err);
+    return {
+      stops: calculateDynamicStops(start, end, departureTime, estimatedDuration, needs),
+      routeDurationMins: parseDurationMinutes(estimatedDuration),
+    };
+  }
+
+  const targetStopsCount = computeTargetStopsCount(osrmRouteDurationMins);
+  if (targetStopsCount === 0) {
+    return {
+      stops: [],
+      routeDurationMins: osrmRouteDurationMins,
+    };
+  }
+
+  const stopFractions = buildStopFractions(osrmRouteDurationMins, targetStopsCount);
+  const stops: Stopover[] = [];
+
+  try {
     // 2. Calculate cumulative distances along the route
     const cumulativeDistances: number[] = [0];
     let totalDist = 0;
@@ -801,10 +1017,10 @@ export const fetchDynamicStopsFromOSM = async (
     }
 
     // 3. Find stops
-    for (let i = 1; i <= targetStopsCount; i++) {
-      const fraction = i / (targetStopsCount + 1);
+    for (let index = 0; index < stopFractions.length; index++) {
+      const { fraction } = stopFractions[index];
       const targetDist = totalDist * fraction;
-      
+
       // Find the coordinate at this distance
       let targetLat = start.lat;
       let targetLng = start.lng;
@@ -880,40 +1096,46 @@ export const fetchDynamicStopsFromOSM = async (
             candidates.sort((a: any, b: any) => b.score - a.score);
             const bestCandidate = candidates[0];
 
-            bestCandidate.time = computeStopTime(departureTime, totalDurationMins, fraction, i - 1);
             stops.push({
               id: bestCandidate.id,
               title: bestCandidate.title,
               desc: bestCandidate.desc,
-              time: bestCandidate.time,
+              time: "",
               lat: bestCandidate.lat,
               lng: bestCandidate.lng,
+              progress: fraction,
             });
             foundStop = true;
           }
         }
       } catch (e) {
-        console.warn("Overpass query failed for stop " + i, e);
+        console.warn(`Overpass query failed for stop ${index + 1}`, e);
       }
 
       if (!foundStop) {
-        const stopTime = computeStopTime(departureTime, totalDurationMins, fraction, i - 1);
         stops.push({
-          id: `osm-fallback-${i}`,
-          title: `Ponto Rodoviário (${Math.round(fraction*100)}% da rota)`,
+          id: `osm-fallback-${index + 1}`,
+          title: `Ponto Rodoviário (${Math.round(fraction * 100)}% da rota)`,
           desc: "Ponto de parada sugerido calculado ao longo da rota real da viagem.",
-          time: stopTime,
+          time: "",
           lat: targetLat,
           lng: targetLng,
+          progress: fraction,
         });
       }
     }
   } catch (err) {
     console.warn("Error fetching real route from OSRM, using robust local geometry fallback:", err);
-    return calculateDynamicStops(start, end, departureTime, estimatedDuration, needs);
+    return {
+      stops: calculateDynamicStops(start, end, departureTime, estimatedDuration, needs),
+      routeDurationMins: parseDurationMinutes(estimatedDuration),
+    };
   }
 
-  return stops;
+  return {
+    stops: assignStopTimesWithRest(departureTime, osrmRouteDurationMins, stops, needs),
+    routeDurationMins: osrmRouteDurationMins,
+  };
 };
 
 export const addMinutesToTime = (timeStr: string, addMins: number): string => {
