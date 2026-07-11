@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import * as L from "leaflet";
 import { getStopsForRoute, snapToRoute, OsrmLeg } from "../utils/routeUtils";
-import { Compass } from "lucide-react";
+import { Compass, LocateFixed } from "lucide-react";
 import { TrafficAlert } from "../types";
 
 const routeCache = new Map<string, { routePoints: [number, number][]; legs: OsrmLeg[] }>();
@@ -41,12 +41,33 @@ export default function MapComponent({
   const routePolylineRef = useRef<L.Polyline | null>(null);
   const routePolylineGlowRef = useRef<L.Polyline | null>(null);
   const [loadingRoute, setLoadingRoute] = useState(false);
+  const [showRecenterBtn, setShowRecenterBtn] = useState(false);
 
   const routePointsRef = useRef<[number, number][]>([]);
   const truckMarkerRef = useRef<L.Marker | null>(null);
+  const truckLatLngRef = useRef<L.LatLng | null>(null);
   const stopMarkersRef = useRef<L.Marker[]>([]);
   const stopsRef = useRef(stops);
   useEffect(() => { stopsRef.current = stops; }, [stops]);
+
+  // Distância mínima (em pixels) entre a localização atual e o centro da tela
+  // pra considerar o mapa "descentralizado" e mostrar o botão de recentralizar.
+  const OFF_CENTER_THRESHOLD_PX = 110;
+
+  // Verifica se a localização (marcador do caminhão/GPS) saiu da área central
+  // visível do mapa. Não move o mapa sozinho — só decide se mostra o botão.
+  const checkOffCenter = (map: L.Map, latlng: L.LatLng) => {
+    try {
+      const size = map.getSize();
+      if (size.x === 0 || size.y === 0) return;
+      const point = map.latLngToContainerPoint(latlng);
+      const center = size.divideBy(2);
+      const dist = Math.hypot(point.x - center.x, point.y - center.y);
+      setShowRecenterBtn(dist > OFF_CENTER_THRESHOLD_PX);
+    } catch (e) {
+      // ignora falhas pontuais de projeção (ex: mapa ainda sem tamanho definido)
+    }
+  };
 
   const alertMarkersRef = useRef<L.Marker[]>([]);
 
@@ -148,7 +169,13 @@ export default function MapComponent({
       truckMarkerRef.current = L.marker([lat, lng], { icon: gpsDotIcon }).addTo(map);
       truckMarkerRef.current.bindPopup("<b>Sua Localização (GPS)</b><br/>Sinal ativo em tempo real");
     }
-    map.panTo([lat, lng], { animate: true, duration: 0.6 });
+
+    // Guarda a posição atual pra uso no botão de recentralizar e no listener de 'moveend'.
+    // Não move mais o mapa automaticamente — o usuário decide quando recentralizar,
+    // clicando no botão que só aparece quando a localização sai da área central da tela.
+    const latlng = L.latLng(lat, lng);
+    truckLatLngRef.current = latlng;
+    checkOffCenter(map, latlng);
   };
 
   // Initialize Leaflet Map and fetch roads
@@ -182,6 +209,16 @@ export default function MapComponent({
     });
 
     mapInstanceRef.current = map;
+
+    // Sempre que o mapa se move (arrasto do usuário, zoom, ou qualquer pan
+    // programático), reavalia se a localização atual ainda está visível perto
+    // do centro — se não estiver, mostra o botão de recentralizar.
+    const handleMoveEnd = () => {
+      if (routeMode === "active" && truckLatLngRef.current && mapInstanceRef.current) {
+        checkOffCenter(mapInstanceRef.current, truckLatLngRef.current);
+      }
+    };
+    map.on("moveend", handleMoveEnd);
 
     // Instantly set fallback view so map always has valid size/center
     map.setView([startCoords.lat, startCoords.lng], 10);
@@ -478,6 +515,30 @@ export default function MapComponent({
     if (mapInstanceRef.current) mapInstanceRef.current.zoomOut();
   };
 
+  // Centraliza o mapa na localização atual do usuário, só quando ele pede
+  // (clicando no botão) — nunca automaticamente. Posiciona a localização um
+  // pouco acima do centro vertical da tela, deixando espaço pro card
+  // flutuante que fica na parte de baixo da tela de navegação ativa.
+  const handleRecenterOnUser = () => {
+    const map = mapInstanceRef.current;
+    const latlng = truckLatLngRef.current;
+    if (!map || !latlng) return;
+
+    const targetZoom = Math.max(map.getZoom(), 15);
+    const size = map.getSize();
+
+    const desiredScreenPoint = L.point(size.x / 2, size.y * 0.35);
+    const centerScreenPoint = size.divideBy(2);
+    const screenOffset = desiredScreenPoint.subtract(centerScreenPoint);
+
+    const userPoint = map.project(latlng, targetZoom);
+    const newCenterPoint = userPoint.subtract(screenOffset);
+    const newCenter = map.unproject(newCenterPoint, targetZoom);
+
+    map.setView(newCenter, targetZoom, { animate: true });
+    setShowRecenterBtn(false);
+  };
+
   return (
     <div className="relative w-full h-full bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 shadow-xl select-none flex flex-col justify-between">
       {/* Map HTML container */}
@@ -501,6 +562,19 @@ export default function MapComponent({
               -
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Botão de recentralizar: só aparece quando a localização sai da área central da tela. Nunca centraliza sozinho — só quando o usuário toca aqui. */}
+      {routeMode === "active" && showRecenterBtn && (
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10">
+          <button
+            onClick={handleRecenterOnUser}
+            className="bg-blue-600 hover:bg-blue-500 active:scale-90 text-white p-3 rounded-full shadow-2xl border-2 border-blue-400/40 transition flex items-center justify-center"
+            title="Centralizar na minha localização"
+          >
+            <LocateFixed className="w-5 h-5" />
+          </button>
         </div>
       )}
 
