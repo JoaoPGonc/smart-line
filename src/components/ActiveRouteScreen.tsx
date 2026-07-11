@@ -17,7 +17,8 @@ import {
   GitMerge,
   ChevronsRight,
   MapPin,
-  Route,
+  ExternalLink,
+  ChevronDown,
 } from "lucide-react";
 import {
   getStopsForRoute,
@@ -112,6 +113,7 @@ export default function ActiveRouteScreen({
   });
   const [isUsingRealGps, setIsUsingRealGps] = useState(false);
   const [speed, setSpeed] = useState(0);
+  const [showMapsMenu, setShowMapsMenu] = useState(false);
 
   // Route data received from MapComponent
   const [routePoints, setRoutePoints] = useState<[number, number][]>([]);
@@ -429,31 +431,29 @@ export default function ActiveRouteScreen({
     return url;
   }, [userGpsCoords, originCoords, destCoords, stops]);
 
-  // ── Link para abrir a rota no Waze (o Waze só aceita 1 destino por vez, ──
-  // ── então aponta pro próximo alvo: a próxima parada ou o destino final) ──
-  const wazeUrl = useMemo(() => {
-    const target =
-      activeStopIndex < stops.length
-        ? stops[activeStopIndex]
-        : destCoords;
-    if (!target || typeof target.lat !== "number" || typeof target.lng !== "number") return null;
-    return `https://waze.com/ul?ll=${target.lat},${target.lng}&navigate=yes`;
-  }, [activeStopIndex, stops, destCoords]);
-
-  // ── Abre uma URL externa (Google Maps / Waze) tanto no navegador normal ──
-  // ── quanto dentro do WebViewer do MIT App Inventor.                     ──
-  // No navegador comum (Chrome/Safari), o <a href> nativo já cuida disso.   ──
-  // Dentro do App Inventor, o WebView não reconhece "app links", então      ──
-  // avisamos o app nativo via window.AppInventor.setWebViewString(url) —    ──
+  // ── Abre a rota do Google Maps via a ponte do App Inventor (fora do app,   ──
+  // ── deixando o Android decidir entre app nativo ou navegador) ou dentro    ──
+  // ── da própria tela (sem sair do app, carregando o site do Maps aqui mesmo).──
+  // No navegador comum (Chrome/Safari), o <a href> nativo já cuida do 1º caso.──
+  // Dentro do App Inventor, o WebView não reconhece "app links" sozinho, então──
+  // avisamos o app nativo via window.AppInventor.setWebViewString(url) —      ──
   // do lado do App Inventor, um bloco "WebViewStringChanged" + ActivityStarter
-  // (Action = android.intent.action.VIEW) precisa pegar esse valor e abrir. ──
-  const openExternalRoute = (url: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+  // (Action = android.intent.action.VIEW) precisa pegar esse valor e abrir.  ──
+  const openOutsideApp = (url: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
     const w = window as any;
     if (w.AppInventor && typeof w.AppInventor.setWebViewString === "function") {
       e.preventDefault();
       w.AppInventor.setWebViewString(url);
     }
     // fora do App Inventor, deixa o comportamento padrão do <a href> acontecer
+    setShowMapsMenu(false);
+  };
+
+  const openInsideApp = (url: string) => () => {
+    // Navega a própria tela (dentro do WebViewer/navegador) para o Google Maps,
+    // sem trocar de app — fica tudo dentro do app do App Inventor.
+    window.location.href = url;
+    setShowMapsMenu(false);
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -490,35 +490,48 @@ export default function ActiveRouteScreen({
             <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
           </button>
 
-          <div className="flex items-center gap-1.5">
-            {googleMapsUrl && (
-              <a
-                href={googleMapsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={openExternalRoute(googleMapsUrl)}
-                className="bg-slate-900/95 border border-slate-800 text-white font-extrabold text-[9px] tracking-wider uppercase py-3 px-3 rounded-2xl shadow-xl hover:bg-slate-800 active:scale-95 transition backdrop-blur-md flex items-center gap-1"
+          {googleMapsUrl && (
+            <div className="relative">
+              <button
+                onClick={() => setShowMapsMenu((v) => !v)}
+                className="bg-slate-900/95 border border-slate-800 text-white font-extrabold text-[9px] tracking-wider uppercase py-3 px-3.5 rounded-2xl shadow-xl hover:bg-slate-800 active:scale-95 transition backdrop-blur-md flex items-center gap-1"
                 title="Ver rota no Google Maps"
               >
                 <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                 MAPS
-              </a>
-            )}
+                <ChevronDown className={`w-3 h-3 text-slate-400 shrink-0 transition-transform ${showMapsMenu ? "rotate-180" : ""}`} />
+              </button>
 
-            {wazeUrl && (
-              <a
-                href={wazeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={openExternalRoute(wazeUrl)}
-                className="bg-slate-900/95 border border-slate-800 text-white font-extrabold text-[9px] tracking-wider uppercase py-3 px-3 rounded-2xl shadow-xl hover:bg-slate-800 active:scale-95 transition backdrop-blur-md flex items-center gap-1"
-                title="Ver rota no Waze"
-              >
-                <Route className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                WAZE
-              </a>
-            )}
-          </div>
+              {showMapsMenu && (
+                <>
+                  {/* Fundo invisível pra fechar o menu ao tocar fora */}
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowMapsMenu(false)}
+                  />
+                  <div className="absolute right-0 top-full mt-2 w-60 bg-slate-900/95 border border-slate-800 rounded-2xl shadow-2xl backdrop-blur-md overflow-hidden z-20">
+                    <a
+                      href={googleMapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={openOutsideApp(googleMapsUrl)}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-[11px] font-bold text-white hover:bg-slate-800 transition uppercase tracking-wide"
+                    >
+                      <ExternalLink className="w-4 h-4 text-blue-400 shrink-0" />
+                      Abrir no app / navegador
+                    </a>
+                    <button
+                      onClick={openInsideApp(googleMapsUrl)}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-[11px] font-bold text-white hover:bg-slate-800 transition uppercase tracking-wide border-t border-slate-800"
+                    >
+                      <MapPin className="w-4 h-4 text-emerald-400 shrink-0" />
+                      Abrir nesta tela (dentro do app)
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Dynamic Navigation Banner */}
