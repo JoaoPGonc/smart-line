@@ -203,7 +203,7 @@ export default function ScheduleConfirmedScreen({
         <div className="grid grid-cols-1 gap-2.5">
           {/* Mini Preview Map Card */}
           <div className="rounded-2xl border border-slate-100 shadow-xs overflow-hidden h-40 relative bg-slate-900">
-            <MapComponent routeMode="static" originCoords={originCoords} destCoords={destCoords} />
+            <MapComponent routeMode="static" originCoords={originCoords} destCoords={destCoords} stops={appointment?.customStops} />
           </div>
 
           {/* Action Button */}

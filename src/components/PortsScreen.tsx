@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ScreenId } from "../types";
 import BottomNavigation from "./BottomNavigation";
-import { Activity, Clock, TrendingUp, TrendingDown, Minus, ThumbsUp, MapPin } from "lucide-react";
+import { Activity, Clock, TrendingUp, TrendingDown, Minus, ThumbsUp, MapPin, Circle } from "lucide-react";
 import { BRAZILIAN_PORTS, fetchRecentReports, submitQueueReport, calculateEstimatedWaitTime, QueueReport, QueueStatus, findClosestPort, fetchPortAppointments, PortAppointment } from "../utils/portQueueService";
 import { auth } from "../lib/firebase";
 
@@ -314,28 +314,28 @@ export default function PortsScreen({ onNavigate }: PortsScreenProps) {
               onClick={() => setSelectedReportStatus("livre")}
               className={`border text-[10px] font-black uppercase py-2.5 rounded-xl transition ${selectedReportStatus === "livre" ? "bg-emerald-600 text-white border-emerald-700" : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"}`}
             >
-              🟢 Livre / Rápido
+              <Circle className="w-2.5 h-2.5 inline-block -mt-0.5 mr-1 fill-emerald-500 text-emerald-500" /> Livre / Rápido
             </button>
             <button 
               disabled={isReporting}
               onClick={() => setSelectedReportStatus("moderado")}
               className={`border text-[10px] font-black uppercase py-2.5 rounded-xl transition ${selectedReportStatus === "moderado" ? "bg-blue-600 text-white border-blue-700" : "bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"}`}
             >
-              🔵 Fila Moderada
+              <Circle className="w-2.5 h-2.5 inline-block -mt-0.5 mr-1 fill-blue-500 text-blue-500" /> Fila Moderada
             </button>
             <button 
               disabled={isReporting}
               onClick={() => setSelectedReportStatus("intenso")}
               className={`border text-[10px] font-black uppercase py-2.5 rounded-xl transition ${selectedReportStatus === "intenso" ? "bg-amber-500 text-white border-amber-600" : "bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200"}`}
             >
-              🟠 Trânsito Intenso
+              <Circle className="w-2.5 h-2.5 inline-block -mt-0.5 mr-1 fill-amber-500 text-amber-500" /> Trânsito Intenso
             </button>
             <button 
               disabled={isReporting}
               onClick={() => setSelectedReportStatus("parado")}
               className={`border text-[10px] font-black uppercase py-2.5 rounded-xl transition ${selectedReportStatus === "parado" ? "bg-red-600 text-white border-red-700" : "bg-red-50 hover:bg-red-100 text-red-700 border-red-200"}`}
             >
-              🔴 Tudo Parado
+              <Circle className="w-2.5 h-2.5 inline-block -mt-0.5 mr-1 fill-red-500 text-red-500" /> Tudo Parado
             </button>
           </div>
 

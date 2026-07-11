@@ -967,9 +967,16 @@ export const fetchDynamicStopsFromOSM = async (
   };
 
   const buildStopFractions = (routeDurationMins: number, targetStopsCount: number) => {
-    return Array.from({ length: targetStopsCount }, (_, index) => ({
-      fraction: Math.min(0.99, (index + 1) / (targetStopsCount + 1)),
-    }));
+    // Posiciona cada parada no ponto real de tempo do intervalo de descanso
+    // escolhido pelo usuário (ex.: a cada 4h => 4h, 8h, 12h...), em vez de
+    // distribuir as paradas em frações fixas e iguais da viagem. Assim, a
+    // localização das paradas passa a refletir corretamente a frequência
+    // de descanso selecionada (stopIntervalHours), e não só a quantidade.
+    const intervalMins = (needs.stopIntervalHours || 4) * 60;
+    return Array.from({ length: targetStopsCount }, (_, index) => {
+      const targetTimeMins = Math.min((index + 1) * intervalMins, routeDurationMins - 1);
+      return { fraction: Math.min(0.99, targetTimeMins / routeDurationMins) };
+    });
   };
 
   let osrmRouteDurationMins = estimatedDurationMins;

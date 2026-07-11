@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ScreenId, TrafficAlert } from "../types";
 import BottomNavigation from "./BottomNavigation";
-import { Car, TrafficCone, Hammer, AlertOctagon, CheckSquare, Square, ChevronRight, MapPin, RefreshCw, Ban, Users, CloudRain, ShieldAlert, PawPrint, ArrowLeft } from "lucide-react";
+import { Car, TrafficCone, Hammer, AlertOctagon, CheckSquare, Square, ChevronRight, MapPin, RefreshCw, Ban, Users, CloudRain, ShieldAlert, PawPrint, ArrowLeft, AlertTriangle } from "lucide-react";
 import { auth, db } from "../lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
@@ -226,7 +226,7 @@ export default function EmitAlertScreen({ onNavigate }: EmitAlertScreenProps) {
 
         {error && (
           <div className="bg-red-50 text-red-600 text-[11px] p-3 rounded-xl font-extrabold border border-red-100 flex items-center gap-2">
-            <span>⚠️</span>
+            <AlertTriangle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}

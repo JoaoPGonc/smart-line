@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ScreenId, Appointment } from "../types";
 import BottomNavigation from "./BottomNavigation";
-import { Calendar as CalendarIcon, MapPin, ArrowRight, ArrowLeft, AlertCircle, RefreshCw, Navigation, Trash2, Clock, HelpCircle, X } from "lucide-react";
+import { Calendar as CalendarIcon, MapPin, ArrowRight, ArrowLeft, AlertCircle, RefreshCw, Navigation, Trash2, Clock, HelpCircle, X, Droplets, Utensils, Lightbulb } from "lucide-react";
 import { calculateDynamicStops, calculateRouteSpanMins, parseDurationMinutes, fetchDynamicStopsFromOSM, reassignStopTimes, OSMRouteStopsResult } from "../utils/routeUtils";
 import { formatAddress } from "../formatDateHelper";
 import { auth } from "../lib/firebase";
@@ -805,8 +805,9 @@ export default function ScheduleScreen({
               />
             </div>
           </div>
-          <p className="text-[10px] text-slate-400 mt-1 font-medium leading-tight">
-            💡 Insira o horário em que você precisa <b>chegar</b> ao porto para o descarregamento. O aplicativo calculará automaticamente o horário ideal de saída.
+          <p className="text-[10px] text-slate-400 mt-1 font-medium leading-tight flex items-start gap-1">
+            <Lightbulb className="w-3 h-3 shrink-0 mt-0.5" />
+            <span>Insira o horário em que você precisa <b>chegar</b> ao porto para o descarregamento. O aplicativo calculará automaticamente o horário ideal de saída.</span>
           </p>
           
           <button
@@ -892,14 +893,14 @@ export default function ScheduleScreen({
                   label: "BANHO",
                   checked: requiresShower,
                   onChange: setRequiresShower,
-                  icon: "🚿",
+                  icon: Droplets,
                 },
                 {
                   id: "meal",
                   label: "REFEIÇÃO",
                   checked: requiresMeal,
                   onChange: setRequiresMeal,
-                  icon: "🍛",
+                  icon: Utensils,
                 },
               ].map((facility) => (
                 <button
@@ -912,7 +913,7 @@ export default function ScheduleScreen({
                       : "bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-100/60"
                   }`}
                 >
-                  <span className={`text-sm ${!facility.checked ? "grayscale opacity-60" : ""}`}>{facility.icon}</span>
+                  <facility.icon className={`w-4 h-4 shrink-0 ${!facility.checked ? "text-slate-400" : "text-emerald-700"}`} />
                   <div className="flex flex-col min-w-0">
                     <span className="text-[10px] font-extrabold leading-tight truncate">{facility.label}</span>
                     <span className="text-[8px] font-bold text-slate-400 mt-0.5 uppercase">

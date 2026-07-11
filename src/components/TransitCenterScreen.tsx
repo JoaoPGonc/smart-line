@@ -160,7 +160,7 @@ export default function TransitCenterScreen({ onNavigate }: TransitCenterScreenP
           <div className="space-y-2.5">
             {alerts.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center text-slate-400 space-y-2">
-                <div className="text-2xl">🚨</div>
+                <AlertTriangle className="w-6 h-6 mx-auto text-slate-300" />
                 <p className="text-xs font-bold uppercase tracking-wider">Sem alertas no momento</p>
                 <p className="text-[10px] text-slate-400">Nenhum caminhoneiro submeteu alertas ou bloqueios na via até agora.</p>
               </div>
@@ -254,7 +254,7 @@ export default function TransitCenterScreen({ onNavigate }: TransitCenterScreenP
           <div className="flex-1 overflow-y-auto p-5 space-y-3.5">
             {alerts.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-100 p-12 text-center text-slate-400 space-y-3.5">
-                <div className="text-4xl">🚨</div>
+                <AlertTriangle className="w-10 h-10 mx-auto text-slate-300" />
                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">Nenhum bloqueio ou alerta</h4>
                 <p className="text-[11px] text-slate-400 max-w-xs mx-auto">
                   Tudo limpo na rodovia! Não há nenhum registro de interdição ou lentidão submetido pelos motoristas no sistema.

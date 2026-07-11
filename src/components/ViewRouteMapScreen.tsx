@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ScreenId, Appointment } from "../types";
 import MapComponent from "./MapComponent";
-import { ArrowLeft, Compass, Navigation2 } from "lucide-react";
+import { ArrowLeft, Compass, Navigation2, Loader2 } from "lucide-react";
 import { formatAddress } from "../formatDateHelper";
 import { getStopsForRoute, parseDurationMinutes, computeStopTime } from "../utils/routeUtils";
 
@@ -14,6 +14,9 @@ interface ViewRouteMapScreenProps {
 
 export default function ViewRouteMapScreen({ onNavigate, originCoords, destCoords, appointment }: ViewRouteMapScreenProps) {
   const [recenterCount, setRecenterCount] = useState(0);
+  // Enquanto o trajeto ainda está sendo calculado/desenhado no mapa, mostramos
+  // um indicador visual e bloqueamos o botão de iniciar rota.
+  const [isRouteLoading, setIsRouteLoading] = useState(true);
 
   const getDistance = () => {
     if (!originCoords || !destCoords) return "267 KM";
@@ -55,8 +58,19 @@ export default function ViewRouteMapScreen({ onNavigate, originCoords, destCoord
           showZoomControls={false}
           showGpsIndicator={false}
           stops={stops}
+          onLoadingChange={setIsRouteLoading}
         />
       </div>
+
+      {/* Indicador de cálculo de rota, exibido enquanto o trajeto ainda não apareceu no mapa */}
+      {isRouteLoading && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
+          <div className="bg-slate-900/95 border border-slate-800 text-white text-[11px] font-bold uppercase tracking-widest py-2.5 px-4 rounded-xl shadow-2xl backdrop-blur-xs flex items-center gap-2">
+            <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+            Calculando rota...
+          </div>
+        </div>
+      )}
 
       {/* Floating Top Header Overlays */}
       <div className="absolute top-4 left-4 right-4 z-10 flex justify-between items-center pointer-events-none">
@@ -112,10 +126,24 @@ export default function ViewRouteMapScreen({ onNavigate, originCoords, destCoord
           {/* BOTÃO INICIAR ROTA */}
 <button 
   onClick={() => onNavigate(ScreenId.ActiveRoute)} 
-  className="w-full flex items-center justify-center gap-2 bg-[#1A254C] hover:bg-[#121A35] text-white py-3 px-4 rounded-lg font-bold text-sm mt-4 cursor-pointer"
+  disabled={isRouteLoading}
+  className={`w-full flex items-center justify-center gap-2 text-white py-3 px-4 rounded-lg font-bold text-sm mt-4 transition ${
+    isRouteLoading
+      ? "bg-slate-700 cursor-not-allowed opacity-60"
+      : "bg-[#1A254C] hover:bg-[#121A35] cursor-pointer"
+  }`}
 >
-  <Navigation2 className="w-4 h-4 fill-white stroke-none rotate-45" /> 
-  INICIAR ROTA
+  {isRouteLoading ? (
+    <>
+      <Loader2 className="w-4 h-4 animate-spin" />
+      CALCULANDO ROTA...
+    </>
+  ) : (
+    <>
+      <Navigation2 className="w-4 h-4 fill-white stroke-none rotate-45" />
+      INICIAR ROTA
+    </>
+  )}
 </button>
         </div>
       </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ScreenId, Appointment } from "../types";
 import { formatAddress } from "../formatDateHelper";
 import BottomNavigation from "./BottomNavigation";
-import { User, Settings, Bell, Moon, Languages, HelpCircle, FileText, LogOut, ChevronRight, Check, History, Edit3 } from "lucide-react";
+import { User, Settings, Bell, Moon, Languages, HelpCircle, FileText, LogOut, ChevronRight, Check, History, Edit3, Timer, X } from "lucide-react";
 import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { signOut } from "firebase/auth";
@@ -207,18 +207,18 @@ export default function MyAccountScreen({ onNavigate, isDarkMode, onToggleDarkMo
                           <p className="w-full text-[9px] text-slate-400 font-semibold mb-1">Como foi essa viagem?</p>
                           <button
                             onClick={(e) => { e.stopPropagation(); onUpdateAppointmentStatus(app.originalIndex, "completed"); setExpandedTripIndex(null); }}
-                            className="bg-emerald-500 text-white hover:bg-emerald-600 px-3 py-2 rounded-xl text-[9px] font-black transition flex-1 text-center shadow-sm active:scale-95">
-                            ✓ Concluída no prazo
+                            className="bg-emerald-500 text-white hover:bg-emerald-600 px-3 py-2 rounded-xl text-[9px] font-black transition flex-1 text-center shadow-sm active:scale-95 flex items-center justify-center gap-1">
+                            <Check className="w-3 h-3" /> Concluída no prazo
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); onUpdateAppointmentStatus(app.originalIndex, "delayed"); setExpandedTripIndex(null); }}
-                            className="bg-amber-500 text-white hover:bg-amber-600 px-3 py-2 rounded-xl text-[9px] font-black transition flex-1 text-center shadow-sm active:scale-95">
-                            ⏱ Com atraso
+                            className="bg-amber-500 text-white hover:bg-amber-600 px-3 py-2 rounded-xl text-[9px] font-black transition flex-1 text-center shadow-sm active:scale-95 flex items-center justify-center gap-1">
+                            <Timer className="w-3 h-3" /> Com atraso
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); onUpdateAppointmentStatus(app.originalIndex, "canceled"); setExpandedTripIndex(null); }}
-                            className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-2 rounded-xl text-[9px] font-black transition w-full text-center border border-red-200 active:scale-95">
-                            ✕ Cancelar / Não realizada
+                            className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-2 rounded-xl text-[9px] font-black transition w-full text-center border border-red-200 active:scale-95 flex items-center justify-center gap-1">
+                            <X className="w-3 h-3" /> Cancelar / Não realizada
                           </button>
                         </div>
                       )}

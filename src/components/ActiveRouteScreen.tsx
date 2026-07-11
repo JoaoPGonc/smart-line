@@ -320,7 +320,7 @@ export default function ActiveRouteScreen({
   const getBannerSubtext = (): string => {
     if (!isRouteLoaded) return "Aguardando dados da rota OSRM…";
     if (isArrived) return "Prepare o QR Code para o portão de triagem.";
-    if (alertLevel === "danger") return "⚠️ Realize a manobra agora!";
+    if (alertLevel === "danger") return "Realize a manobra agora!";
     if (alertLevel === "warn") return "Prepare-se para realizar a manobra em breve.";
     if (speed > 0) return `Velocidade atual: ${speed} km/h`;
     return isUsingRealGps ? "Navegando via GPS em tempo real." : "Aguardando sinal GPS…";

@@ -6,6 +6,21 @@ import { TrafficAlert } from "../types";
 
 const routeCache = new Map<string, { routePoints: [number, number][]; legs: OsrmLeg[] }>();
 
+// Ícones em SVG (mesmo estilo/paths da biblioteca lucide-react) usados dentro
+// dos marcadores do Leaflet, já que L.divIcon precisa de HTML puro (não JSX).
+const svgIcon = (paths: string, size = 14) => `
+  <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>
+`;
+
+const LUCIDE_MARKER_ICONS = {
+  anchor: svgIcon('<path d="M12 22V8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/><circle cx="12" cy="5" r="3"/>'),
+  flag: svgIcon('<path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528"/>'),
+  check: svgIcon('<path d="M20 6 9 17l-5-5"/>', 11),
+  siren: svgIcon('<path d="M7 18v-6a5 5 0 1 1 10 0v6"/><path d="M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z"/><path d="M21 12h1"/><path d="M18.5 4.5 18 5"/><path d="M2 12h1"/><path d="M12 2v1"/><path d="m4.929 4.929.707.707"/><path d="M12 12v6"/>'),
+  construction: svgIcon('<rect x="2" y="6" width="20" height="8" rx="1"/><path d="M17 14v7"/><path d="M7 14v7"/><path d="M17 3v3"/><path d="M7 3v3"/><path d="M10 14 2.3 6.3"/><path d="m14 6 7.7 7.7"/><path d="m8 6 8 8"/>'),
+  ban: svgIcon('<path d="M4.929 4.929 19.07 19.071"/><circle cx="12" cy="12" r="10"/>'),
+};
+
 interface MapComponentProps {
   routeMode?: "overview" | "active" | "static";
   activeStopIndex?: number;
@@ -20,6 +35,8 @@ interface MapComponentProps {
   alerts?: TrafficAlert[] | null;
   /** Called once OSRM route data has been loaded. Provides the polyline points and step data for GPS navigation. */
   onRouteReady?: (routePoints: [number, number][], legs: OsrmLeg[]) => void;
+  /** Called whenever the route is being fetched/calculated, and again once it finishes (true = ainda carregando). */
+  onLoadingChange?: (loading: boolean) => void;
 }
 
 export default function MapComponent({ 
@@ -34,13 +51,21 @@ export default function MapComponent({
   showGpsIndicator = true,
   stops = null,
   alerts = null,
-  onRouteReady
+  onRouteReady,
+  onLoadingChange
 }: MapComponentProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const routePolylineRef = useRef<L.Polyline | null>(null);
   const routePolylineGlowRef = useRef<L.Polyline | null>(null);
-  const [loadingRoute, setLoadingRoute] = useState(false);
+  const [loadingRoute, setLoadingRoute] = useState(true);
+
+  // Notifica o componente pai sempre que o estado de carregamento da rota mudar,
+  // pra que outras telas (ex.: "Ver Meu Trajeto") possam mostrar um indicador
+  // próprio e bloquear ações até o trajeto estar pronto no mapa.
+  useEffect(() => {
+    if (onLoadingChange) onLoadingChange(loadingRoute);
+  }, [loadingRoute, onLoadingChange]);
   const [showRecenterBtn, setShowRecenterBtn] = useState(false);
 
   const routePointsRef = useRef<[number, number][]>([]);
@@ -85,14 +110,14 @@ export default function MapComponent({
     alerts.forEach((alert) => {
       if (alert.lat === undefined || alert.lng === undefined) return;
 
-      let iconHtml = "🚨";
+      let iconHtml = LUCIDE_MARKER_ICONS.siren;
       let bgColor = "bg-red-500";
       
       if (alert.type === "maintenance" || alert.type === "other") {
-        iconHtml = "🚧";
+        iconHtml = LUCIDE_MARKER_ICONS.construction;
         bgColor = "bg-orange-500";
       } else if (alert.type === "blocked") {
-        iconHtml = "🚫";
+        iconHtml = LUCIDE_MARKER_ICONS.ban;
         bgColor = "bg-blue-600";
       }
 
@@ -247,7 +272,7 @@ export default function MapComponent({
       html: `
         <div class="flex flex-col items-center select-none">
           <div class="w-7 h-7 rounded-full bg-blue-900 border-2 border-white flex items-center justify-center text-white shadow-lg font-bold text-xs">
-            ⚓
+            ${LUCIDE_MARKER_ICONS.anchor}
           </div>
           <div class="bg-blue-950 text-white text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shadow-md whitespace-nowrap mt-1 border border-blue-800">
             ${(() => { const parts = (startCoords.name || "Partida").split(",").map(p => p.trim()).filter(Boolean); return parts.find(p => !/^\d+$/.test(p)) || parts[0] || "Partida"; })()}
@@ -267,7 +292,7 @@ export default function MapComponent({
       html: `
         <div class="flex flex-col items-center select-none">
           <div class="w-7 h-7 rounded-full bg-red-600 border-2 border-white flex items-center justify-center text-white shadow-lg font-bold text-xs animate-bounce">
-            🚩
+            ${LUCIDE_MARKER_ICONS.flag}
           </div>
           <div class="bg-red-950 text-white text-[8px] font-mono font-bold px-1.5 py-0.5 rounded shadow-md whitespace-nowrap mt-1 border border-red-800">
             ${(() => { const parts = (endCoords.name || "Destino").split(",").map(p => p.trim()).filter(Boolean); return parts.find(p => !/^\d+$/.test(p)) || parts[0] || "Destino"; })()}
@@ -303,7 +328,7 @@ export default function MapComponent({
           html: `
             <div class="flex flex-col items-center select-none">
               <div class="w-5 h-5 rounded-full ${isChecked ? 'bg-emerald-500' : 'bg-orange-500'} border-2 border-white flex items-center justify-center text-white shadow-md font-bold text-[9px]">
-                ${isChecked ? '✓' : (idx + 1).toString()}
+                ${isChecked ? LUCIDE_MARKER_ICONS.check : (idx + 1).toString()}
               </div>
               <div class="bg-slate-900/90 text-slate-200 text-[7px] font-sans font-semibold px-1 py-0.5 rounded shadow-sm whitespace-nowrap mt-1 border border-slate-800">
                 ${stop.title || (stop as any).name || "Parada"}
@@ -341,9 +366,17 @@ export default function MapComponent({
     coordsList.push(`${endCoords.lng},${endCoords.lat}`);
     
     const routeKey = coordsList.join(";");
-    const cachedRoute = routeCache.get(routeKey);
 
-    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${routeKey}?overview=full&geometries=geojson&steps=true`;
+    // Só precisamos das instruções de manobra (steps) e da geometria em resolução
+    // máxima quando estamos de fato navegando (GPS turn-by-turn). Nas telas de
+    // "ver meu trajeto" / visão geral (routeMode "static"/"overview") isso é peso
+    // morto: a resposta do OSRM fica maior e mais lenta de calcular/baixar/renderizar
+    // sem nenhum ganho visual. Isso é a causa principal do carregamento lento do mapa.
+    const needsTurnByTurn = routeMode === "active";
+    const cacheKey = needsTurnByTurn ? `${routeKey}|steps` : routeKey;
+    const cachedRoute = routeCache.get(cacheKey);
+
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${routeKey}?overview=${needsTurnByTurn ? "full" : "simplified"}&geometries=geojson&steps=${needsTurnByTurn}`;
 
     const processRouteData = (data: any) => {
       if (!mapInstanceRef.current || mapInstanceRef.current !== map) return;
@@ -353,7 +386,7 @@ export default function MapComponent({
         const routePoints: [number, number][] = rawGeometry.map((pt: [number, number]) => [pt[1], pt[0]] as [number, number]);
 
         routePointsRef.current = routePoints;
-        routeCache.set(routeKey, { routePoints, legs: data.routes[0].legs ?? [] });
+        routeCache.set(cacheKey, { routePoints, legs: data.routes[0].legs ?? [] });
 
         // Draw high contrast outer glowing line
         const polyline = L.polyline(routePoints, {
@@ -425,7 +458,14 @@ export default function MapComponent({
         updateTruckPosition(map, cachedRoute.routePoints);
       }
     } else {
-      fetch(osrmUrl)
+      // Timeout de segurança: o servidor público do OSRM às vezes demora muito
+      // ou fica indisponível. Em vez de deixar o usuário esperando indefinidamente
+      // olhando pro "Traçando Rota...", damos um limite de 10s e caímos no traçado
+      // alternativo (linha reta) — o mapa nunca fica preso carregando pra sempre.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      fetch(osrmUrl, { signal: controller.signal })
         .then((res) => {
           if (!res.ok) throw new Error("OSRM limit reached or network error");
           return res.json();
@@ -457,6 +497,7 @@ export default function MapComponent({
           }
         })
         .finally(() => {
+          clearTimeout(timeoutId);
           if (mapInstanceRef.current && mapInstanceRef.current === map) {
             setLoadingRoute(false);
           }
