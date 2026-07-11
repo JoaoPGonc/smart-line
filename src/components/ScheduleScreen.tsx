@@ -618,50 +618,62 @@ export default function ScheduleScreen({
       {/* Scrollable Container */}
       <div className="flex-1 overflow-y-auto p-6 space-y-5 pb-12">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-2">
-          <button
-            onClick={() => onNavigate(ScreenId.RouteOverview)}
-            className="bg-white text-blue-950 border border-slate-200 hover:bg-slate-50 p-2 rounded-xl shadow-xs transition cursor-pointer flex-shrink-0"
-            title="Voltar"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div className="flex-1">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => onNavigate(ScreenId.RouteOverview)}
+              className="bg-white text-blue-950 border border-slate-200 hover:bg-slate-50 p-2 rounded-xl shadow-xs transition cursor-pointer flex-shrink-0"
+              title="Voltar"
+              aria-label="Voltar"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold text-blue-950 font-sans tracking-tight">
                 Agendar Chegada
               </h2>
-              <button 
+              <button
                 onClick={() => setShowHint(true)}
-                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded-full transition-colors cursor-pointer"
+                className="inline-flex items-center justify-center text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 title="Como funciona o agendamento"
+                aria-label="Como funciona o agendamento"
+                aria-haspopup="dialog"
+                aria-expanded={showHint}
+                aria-controls="schedule-help-dialog"
               >
-                <HelpCircle className="w-5 h-5" />
+                <HelpCircle className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Selecione o terminal e o horário para sua operação.
-            </p>
           </div>
         </div>
 
         {/* Hint Box */}
         {showHint && (
-          <div className="bg-blue-50 border border-blue-100 p-4 rounded-2xl relative">
-            <button 
+          <div
+            id="schedule-help-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="schedule-help-title"
+            className="bg-blue-50 border border-blue-100 p-4 rounded-2xl relative"
+          >
+            <button
               onClick={() => setShowHint(false)}
-              className="absolute top-2 right-2 text-blue-400 hover:text-blue-600 p-1 cursor-pointer"
+              className="absolute top-2 right-2 text-blue-400 hover:text-blue-600 p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-label="Fechar ajuda"
             >
               <X className="w-4 h-4" />
             </button>
-            <h3 className="text-sm font-bold text-blue-900 mb-2 flex items-center gap-1.5">
-              <HelpCircle className="w-4 h-4" /> Como funciona o Agendamento?
+            <h3 id="schedule-help-title" className="text-sm font-bold text-blue-900 mb-3 flex items-center gap-2">
+              <HelpCircle className="w-4 h-4" aria-hidden="true" /> Como funciona o agendamento
             </h3>
-            <ul className="text-xs text-blue-800 space-y-2 list-disc pl-4 font-medium leading-relaxed">
-              <li><b>Partida e Chegada:</b> Escolha sua origem e o porto de destino.</li>
-              <li><b>Horário de Chegada:</b> Insira que horas você <b>precisa estar no porto</b>.</li>
-              <li><b>Paradas:</b> Defina suas preferências de descanso.</li>
-              <li>O app fará o cálculo reverso e te dirá exatamente que horas você deve sair da origem para chegar no porto a tempo!</li>
+            <p className="text-xs text-blue-800 font-medium leading-relaxed mb-3">
+              Informe a origem e o destino, escolha a data e o horário de chegada desejado. O sistema calcula automaticamente o melhor horário de partida levando em conta as paradas programadas.
+            </p>
+            <ul className="text-xs text-blue-800 space-y-2 list-disc pl-5 font-medium leading-relaxed">
+              <li><strong>Origem:</strong> Endereço de partida ou localização atual.</li>
+              <li><strong>Destino:</strong> Porto de chegada escolhido.</li>
+              <li><strong>Data e horário:</strong> Quando você precisa estar no porto.</li>
+              <li><strong>Paradas:</strong> Selecione o intervalo e a duração das paradas; o app ajusta o horário de saída automaticamente.</li>
             </ul>
           </div>
         )}
@@ -882,31 +894,17 @@ export default function ScheduleScreen({
               {[
                 {
                   id: "shower",
-                  label: "Banho Quente",
+                  label: "BANHO",
                   checked: requiresShower,
                   onChange: setRequiresShower,
                   icon: "🚿",
                 },
                 {
                   id: "meal",
-                  label: "Refeição Completa",
+                  label: "REFEIÇÃO",
                   checked: requiresMeal,
                   onChange: setRequiresMeal,
                   icon: "🍛",
-                },
-                {
-                  id: "security",
-                  label: "Pátio Seguro",
-                  checked: requiresSecurity,
-                  onChange: setRequiresSecurity,
-                  icon: "🔒",
-                },
-                {
-                  id: "scale",
-                  label: "Balança Ativa",
-                  checked: requiresScale,
-                  onChange: setRequiresScale,
-                  icon: "⚖️",
                 },
               ].map((facility) => (
                 <button
