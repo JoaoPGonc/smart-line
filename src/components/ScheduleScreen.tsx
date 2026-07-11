@@ -825,17 +825,15 @@ export default function ScheduleScreen({
         </div>
         )}
 
-        {/* Driver Needs Section */}
+        {/* Route Preferences Section */}
         {step === 2 && (
           <>
-            <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-xs space-y-4">
-              <div className="flex items-center gap-1.5 pb-1 border-b border-slate-50">
-                <h3 className="text-xs font-extrabold text-blue-950 uppercase tracking-wider">
-                  Necessidades do Caminhoneiro
-                </h3>
-                <span className="bg-amber-50 text-amber-700 text-[8px] font-black px-2 py-0.5 rounded-md uppercase border border-amber-100">
-                  Dinamizar Paradas
-                </span>
+            <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-xs space-y-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
+                  <HelpCircle className="w-5 h-5 text-blue-600" aria-hidden="true" />
+                </div>
+                <p className="text-sm font-semibold text-slate-700">Ritmo de paradas</p>
               </div>
 
               {/* Stop Interval Selector */}
