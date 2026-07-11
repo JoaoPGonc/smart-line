@@ -16,6 +16,8 @@ import {
   RotateCcw,
   GitMerge,
   ChevronsRight,
+  MapPin,
+  Route,
 } from "lucide-react";
 import {
   getStopsForRoute,
@@ -407,6 +409,53 @@ export default function ActiveRouteScreen({
   const targetEta = isNextTargetDest ? eta : stops[activeStopIndex].time || "--:--";
   const targetDate = isNextTargetDest ? arrivalDate : (stops[activeStopIndex].date ? formatDisplayDate(stops[activeStopIndex].date) : "Hoje");
 
+  // ── Link para abrir a rota no Google Maps (app nativo no celular, web no desktop) ──
+  const googleMapsUrl = useMemo(() => {
+    const origin = userGpsCoords || originCoords;
+    if (!origin || !destCoords) return null;
+
+    const originParam = `${origin.lat},${origin.lng}`;
+    const destParam = `${destCoords.lat},${destCoords.lng}`;
+
+    const waypointsParam = stops
+      .filter((s) => typeof s.lat === "number" && typeof s.lng === "number")
+      .map((s) => `${s.lat},${s.lng}`)
+      .join("|");
+
+    let url = `https://www.google.com/maps/dir/?api=1&origin=${originParam}&destination=${destParam}&travelmode=driving`;
+    if (waypointsParam) {
+      url += `&waypoints=${encodeURIComponent(waypointsParam)}`;
+    }
+    return url;
+  }, [userGpsCoords, originCoords, destCoords, stops]);
+
+  // ── Link para abrir a rota no Waze (o Waze só aceita 1 destino por vez, ──
+  // ── então aponta pro próximo alvo: a próxima parada ou o destino final) ──
+  const wazeUrl = useMemo(() => {
+    const target =
+      activeStopIndex < stops.length
+        ? stops[activeStopIndex]
+        : destCoords;
+    if (!target || typeof target.lat !== "number" || typeof target.lng !== "number") return null;
+    return `https://waze.com/ul?ll=${target.lat},${target.lng}&navigate=yes`;
+  }, [activeStopIndex, stops, destCoords]);
+
+  // ── Abre uma URL externa (Google Maps / Waze) tanto no navegador normal ──
+  // ── quanto dentro do WebViewer do MIT App Inventor.                     ──
+  // No navegador comum (Chrome/Safari), o <a href> nativo já cuida disso.   ──
+  // Dentro do App Inventor, o WebView não reconhece "app links", então      ──
+  // avisamos o app nativo via window.AppInventor.setWebViewString(url) —    ──
+  // do lado do App Inventor, um bloco "WebViewStringChanged" + ActivityStarter
+  // (Action = android.intent.action.VIEW) precisa pegar esse valor e abrir. ──
+  const openExternalRoute = (url: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+    const w = window as any;
+    if (w.AppInventor && typeof w.AppInventor.setWebViewString === "function") {
+      e.preventDefault();
+      w.AppInventor.setWebViewString(url);
+    }
+    // fora do App Inventor, deixa o comportamento padrão do <a href> acontecer
+  };
+
   // ─────────────────────────────────────────────────────────────────────────
   return (
     <div id="active-route" className="relative h-full bg-slate-950 flex flex-col justify-between font-sans overflow-hidden">
@@ -431,7 +480,7 @@ export default function ActiveRouteScreen({
       {/* 1. Floating Top Navigation Instructions Card */}
       <div className="absolute top-4 left-4 right-4 z-10 flex flex-col gap-2 pointer-events-none">
 
-        {/* Back button */}
+        {/* Back button + Google Maps link */}
         <div className="flex justify-between items-center w-full pointer-events-auto">
           <button
             onClick={() => onNavigate(ScreenId.RouteOverview)}
@@ -440,6 +489,36 @@ export default function ActiveRouteScreen({
           >
             <ArrowLeft className="w-5 h-5 stroke-[2.5]" />
           </button>
+
+          <div className="flex items-center gap-1.5">
+            {googleMapsUrl && (
+              <a
+                href={googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={openExternalRoute(googleMapsUrl)}
+                className="bg-slate-900/95 border border-slate-800 text-white font-extrabold text-[9px] tracking-wider uppercase py-3 px-3 rounded-2xl shadow-xl hover:bg-slate-800 active:scale-95 transition backdrop-blur-md flex items-center gap-1"
+                title="Ver rota no Google Maps"
+              >
+                <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                MAPS
+              </a>
+            )}
+
+            {wazeUrl && (
+              <a
+                href={wazeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={openExternalRoute(wazeUrl)}
+                className="bg-slate-900/95 border border-slate-800 text-white font-extrabold text-[9px] tracking-wider uppercase py-3 px-3 rounded-2xl shadow-xl hover:bg-slate-800 active:scale-95 transition backdrop-blur-md flex items-center gap-1"
+                title="Ver rota no Waze"
+              >
+                <Route className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                WAZE
+              </a>
+            )}
+          </div>
         </div>
 
         {/* Dynamic Navigation Banner */}
