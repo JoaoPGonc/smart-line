@@ -463,8 +463,6 @@ export const snapToRoute = (
 export interface OSMRouteStopsResult {
   stops: Stopover[];
   routeDurationMins: number;
-  osrmFailed?: boolean;
-  overpassFailed?: boolean;
 }
 
 // Fetch real points of interest (gas stations) along the route dynamically using OSRM + OpenStreetMap Overpass
@@ -521,8 +519,6 @@ export const fetchDynamicStopsFromOSM = async (
     return {
       stops: calculateDynamicStops(start, end, departureTime, estimatedDuration, needs),
       routeDurationMins: parseDurationMinutes(estimatedDuration),
-      osrmFailed: true,
-      overpassFailed: true,
     };
   }
 
@@ -535,7 +531,7 @@ export const fetchDynamicStopsFromOSM = async (
   }
 
   const stopFractions = buildStopFractions(osrmRouteDurationMins, targetStopsCount);
-  let stops: Stopover[] = [];
+  const stops: Stopover[] = [];
 
   try {
     // 2. Calculate cumulative distances along the route
@@ -549,9 +545,9 @@ export const fetchDynamicStopsFromOSM = async (
       cumulativeDistances.push(totalDist);
     }
 
-    // 3. Find stops in parallel with stagger delays
-    const stopPromises = stopFractions.map(async (stopFrac, index) => {
-      const { fraction } = stopFrac;
+    // 3. Find stops
+    for (let index = 0; index < stopFractions.length; index++) {
+      const { fraction } = stopFractions[index];
       const targetDist = totalDist * fraction;
 
       // Find the coordinate at this distance
@@ -560,8 +556,7 @@ export const fetchDynamicStopsFromOSM = async (
       let targetIndex = 0;
       for (let j = 1; j < cumulativeDistances.length; j++) {
         if (cumulativeDistances[j] >= targetDist) {
-          const diff = cumulativeDistances[j] - cumulativeDistances[j-1];
-          const ratio = diff > 0 ? (targetDist - cumulativeDistances[j-1]) / diff : 0;
+          const ratio = (targetDist - cumulativeDistances[j-1]) / (cumulativeDistances[j] - cumulativeDistances[j-1]);
           const p1 = routeCoords[j-1];
           const p2 = routeCoords[j];
           targetLng = p1[0] + (p2[0] - p1[0]) * ratio;
@@ -571,13 +566,11 @@ export const fetchDynamicStopsFromOSM = async (
         }
       }
 
-      // Add a staggered delay to avoid flooding the Overpass API at the exact same millisecond
-      await new Promise(resolve => setTimeout(resolve, index * 200));
-
       // Query Overpass for fuel stations near this coordinate
       const overpassUrl = "https://overpass-api.de/api/interpreter";
       const query = `[out:json][timeout:8];node["amenity"="fuel"](around:5000,${targetLat},${targetLng});out body 6;`;
 
+      let foundStop = false;
       try {
         const response = await fetch(overpassUrl, {
           method: "POST",
@@ -625,13 +618,14 @@ export const fetchDynamicStopsFromOSM = async (
                 lat: el.lat,
                 lng: el.lon,
                 score,
+                time: "",
               };
             });
 
             candidates.sort((a: any, b: any) => b.score - a.score);
             const bestCandidate = candidates[0];
 
-            return {
+            stops.push({
               id: bestCandidate.id,
               title: bestCandidate.title,
               desc: bestCandidate.desc,
@@ -639,41 +633,37 @@ export const fetchDynamicStopsFromOSM = async (
               lat: bestCandidate.lat,
               lng: bestCandidate.lng,
               progress: fraction,
-            } as Stopover;
+            });
+            foundStop = true;
           }
         }
       } catch (e) {
         console.warn(`Overpass query failed for stop ${index + 1}`, e);
       }
 
-      // Fallback stop
-      return {
-        id: `osm-fallback-${index + 1}`,
-        title: `Ponto Rodoviário (${Math.round(fraction * 100)}% da rota)`,
-        desc: "Ponto de parada sugerido calculado ao longo da rota real da viagem.",
-        time: "",
-        lat: targetLat,
-        lng: targetLng,
-        progress: fraction,
-      } as Stopover;
-    });
-
-    stops = await Promise.all(stopPromises);
+      if (!foundStop) {
+        stops.push({
+          id: `osm-fallback-${index + 1}`,
+          title: `Ponto Rodoviário (${Math.round(fraction * 100)}% da rota)`,
+          desc: "Ponto de parada sugerido calculado ao longo da rota real da viagem.",
+          time: "",
+          lat: targetLat,
+          lng: targetLng,
+          progress: fraction,
+        });
+      }
+    }
   } catch (err) {
     console.warn("Error fetching real route from OSRM, using robust local geometry fallback:", err);
     return {
       stops: calculateDynamicStops(start, end, departureTime, estimatedDuration, needs),
       routeDurationMins: parseDurationMinutes(estimatedDuration),
-      osrmFailed: true,
-      overpassFailed: true,
     };
   }
 
   return {
     stops: assignStopTimesWithRest(departureTime, osrmRouteDurationMins, stops, needs),
     routeDurationMins: osrmRouteDurationMins,
-    osrmFailed: false,
-    overpassFailed: stops.some(s => s.id?.includes("fallback")),
   };
 };
 

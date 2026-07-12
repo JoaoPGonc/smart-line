@@ -95,24 +95,6 @@ export default function ScheduleConfirmedScreen({
           </h2>
         </div>
 
-        {/* Aviso de instabilidade de API de terceiros / Fallback */}
-        {(appointment?.osrmFailed || appointment?.overpassFailed) && (!appointment?.customStops || appointment.customStops.length === 0) && (
-          <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex gap-3 items-start shadow-xs animate-in fade-in duration-300">
-            <span className="text-amber-600 text-lg leading-none mt-0.5">⚠️</span>
-            <div>
-              <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wide mb-0.5">
-                {appointment?.osrmFailed ? "Aviso: Mapa Simplificado" : "Aviso: Paradas Estimadas"}
-              </h4>
-              <p className="text-[11px] text-amber-700 leading-relaxed font-medium">
-                {appointment?.osrmFailed 
-                  ? "O mapa de estradas está instável no momento. Traçamos uma rota direta, mas fique tranquilo: suas paradas, horários de viagem e o agendamento no porto estão 100% garantidos e funcionando normalmente!"
-                  : "O buscador de postos está com lentidão. Sugerimos paradas de descanso automáticas seguras ao longo do caminho para manter seu cronograma e segurança em dia!"
-                }
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Departure & Arrival Card */}
         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-xs relative">
           <div className="flex flex-col gap-5 relative pl-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[1.5px] before:bg-slate-200">
