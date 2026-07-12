@@ -225,27 +225,6 @@ export const parseTimeToMinutes = (time: string): number => {
   return h * 60 + m;
 };
 
-export const normalizeAbsoluteStopMinutes = (stops: Stopover[]): number[] => {
-  const absolute: number[] = [];
-  let dayOffset = 0;
-  let previous = -1;
-
-  for (const stop of stops) {
-    const mins = parseTimeToMinutes(stop.time);
-    if (previous !== -1 && mins < previous) {
-      dayOffset += 24 * 60;
-    }
-    absolute.push(mins + dayOffset);
-    previous = mins;
-  }
-
-  return absolute;
-};
-
-export const getMinutesToTargetDistance = (progress: number, totalDurationMins: number): number => {
-  return Math.round(progress * totalDurationMins);
-};
-
 export interface DriverNeeds {
   stopIntervalHours: number;
   stopDurationMinutes?: number;
@@ -364,7 +343,6 @@ export const calculateDynamicStops = (
   estimatedDuration: string,
   needs: DriverNeeds
 ): Stopover[] => {
-  const totalDist = getDistance(start.lat, start.lng, end.lat, end.lng);
   const totalDurationMins = parseDurationMinutes(estimatedDuration);
   const durationHours = totalDurationMins / 60;
 
@@ -666,21 +644,6 @@ export const fetchDynamicStopsFromOSM = async (
     routeDurationMins: osrmRouteDurationMins,
   };
 };
-
-export const addMinutesToTime = (timeStr: string, addMins: number): string => {
-  try {
-    const [h, m] = timeStr.split(":").map(Number);
-    if (!isNaN(h) && !isNaN(m)) {
-      let total = h * 60 + m + addMins;
-      while (total < 0) total += 24 * 60;
-      const resultH = Math.floor(total / 60) % 24;
-      const resultM = total % 60;
-      return `${resultH.toString().padStart(2, "0")}:${resultM.toString().padStart(2, "0")}`;
-    }
-  } catch (e) {}
-  return timeStr;
-};
-
 
 export const generateGoogleMapsUrl = (
   originCoords: { lat: number; lng: number } | null | undefined,

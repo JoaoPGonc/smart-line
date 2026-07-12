@@ -26,7 +26,6 @@ export default function MyAccountScreen({ onNavigate, isDarkMode, onToggleDarkMo
     plate: string;
     company: string;
     email: string;
-    photoURL?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -110,11 +109,7 @@ export default function MyAccountScreen({ onNavigate, isDarkMode, onToggleDarkMo
           <div className="flex items-center gap-4">
             {/* Avatar block */}
             <div className="bg-white/10 p-1 rounded-2xl border border-white/20 relative w-16 h-16 flex items-center justify-center overflow-hidden">
-              {profile?.photoURL ? (
-                <img src={profile.photoURL} alt="Profile" className="w-full h-full object-cover rounded-xl" />
-              ) : (
-                <User className="w-8 h-8 text-white" />
-              )}
+              <User className="w-8 h-8 text-white" />
               <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-blue-900 animate-pulse"></span>
             </div>
  

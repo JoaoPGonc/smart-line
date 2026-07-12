@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { ScreenId, Appointment } from "../types";
 import BottomNavigation from "./BottomNavigation";
 import { Calendar as CalendarIcon, MapPin, ArrowRight, ArrowLeft, AlertCircle, RefreshCw, Navigation, Trash2, Clock, HelpCircle, X, Droplets, Utensils, Lightbulb } from "lucide-react";
-import { calculateDynamicStops, calculateRouteSpanMins, parseDurationMinutes, fetchDynamicStopsFromOSM, reassignStopTimes, OSMRouteStopsResult } from "../utils/routeUtils";
+import { calculateDynamicStops, calculateRouteSpanMins, fetchDynamicStopsFromOSM, reassignStopTimes } from "../utils/routeUtils";
 import { formatAddress } from "../formatDateHelper";
 import { auth } from "../lib/firebase";
 import { BRAZILIAN_PORTS, logPortAppointment } from "../utils/portQueueService";
@@ -146,112 +146,6 @@ export default function ScheduleScreen({
   const [requiresMeal, setRequiresMeal] = useState<boolean>(false);
   const [requiresSecurity, setRequiresSecurity] = useState<boolean>(false);
   const [requiresScale, setRequiresScale] = useState<boolean>(false);
-
-  // Helper to parse duration to minutes
-  const parseDurationMinutesLocal = (durStr: string) => {
-    let total = 275; // default fallback 4h 35m
-    try {
-      const match = durStr.match(/(\d+)h\s*(\d+)m/);
-      if (match) {
-        total = parseInt(match[1]) * 60 + parseInt(match[2]);
-      } else {
-        const hMatch = durStr.match(/(\d+)h/);
-        if (hMatch) total = parseInt(hMatch[1]) * 60;
-      }
-    } catch (e) {}
-    return total;
-  };
-
-  // Calculation of suggested departure time
-  const getSuggestedDepartureTime = () => {
-    if (!time || !time.includes(":")) return null;
-    
-    let distanceKm = 275; // fallback
-    let start = originCoords || { lat: -18.0253, lng: -40.1509 };
-    let end = destCoords || { lat: -20.2831, lng: -40.2435 };
-
-    if (originCoords && destCoords) {
-      start = originCoords;
-      end = destCoords;
-      const R = 6371; // km
-      const dLat = ((end.lat - start.lat) * Math.PI) / 180;
-      const dLon = ((end.lng - start.lng) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((start.lat * Math.PI) / 180) *
-          Math.cos((end.lat * Math.PI) / 180) *
-          Math.sin(dLon / 2) *
-          Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      distanceKm = R * c;
-    }
-
-    const durationMins = Math.round((distanceKm / 65) * 60);
-    
-    const dynamicStops = calculateDynamicStops(
-      start,
-      end,
-      "00:00",
-      `${Math.floor(durationMins / 60)}h ${durationMins % 60}m`,
-      {
-        stopIntervalHours,
-        stopDurationMinutes,
-        requiresShower,
-        requiresMeal,
-        requiresSecurity,
-        requiresScale,
-      }
-    );
-    const stopsCount = dynamicStops.length;
-    const stopsDurationMins = stopsCount * stopDurationMinutes; // per-stop duration from user
-
-    // Traffic delay: simulated delay based on travel distance
-    const trafficDelayMins = Math.round(durationMins * 0.12); // 12% traffic delay
-
-    const activeMins = durationMins + stopsDurationMins + trafficDelayMins;
-    const restsCount = Math.floor((Math.max(0, activeMins - 1)) / (8 * 60)); // 1 interjornada rest (11h) per 8h of work
-    const restDurationMins = restsCount * 11 * 60;
-    
-    const totalLeadMins = activeMins + restDurationMins;
-
-    try {
-      const [ah, am] = time.split(":").map(Number);
-      if (!isNaN(ah) && !isNaN(am)) {
-        let totalArrivalMins = ah * 60 + am;
-        let departureMins = totalArrivalMins - totalLeadMins;
-        
-        if (departureMins < 0) {
-          departureMins += 24 * 60; // wrap around previous day
-        }
-        
-        const depH = Math.floor(departureMins / 60) % 24;
-        const depM = departureMins % 60;
-        
-        return {
-          departureTime: `${depH.toString().padStart(2, "0")}:${depM.toString().padStart(2, "0")}`,
-          durationText: `${Math.floor(durationMins / 60)}h ${durationMins % 60}m`,
-          stopsCount,
-          stopsDurationText: `${Math.floor(stopsDurationMins / 60)}h ${stopsDurationMins % 60}m`,
-          trafficDelayText: `${trafficDelayMins}m`,
-          totalLeadMins,
-          totalLeadText: `${Math.floor(totalLeadMins / 60)}h ${totalLeadMins % 60}m`,
-          stops: dynamicStops
-        };
-      }
-    } catch (e) {}
-    
-    return null;
-  };
-
-  // Simulated queue hours for the graph
-  const hourlyQueue = [
-    { hour: "10:00", value: 20, active: !!time && time.startsWith("10:") },
-    { hour: "11:00", value: 35, active: !!time && time.startsWith("11:00") },
-    { hour: "11:30", value: 85, active: !time || time === "11:30" || (!!time && time.startsWith("11:3")) }, // Default or chosen 11:30
-    { hour: "13:00", value: 55, active: !!time && time.startsWith("13:") },
-    { hour: "15:00", value: 30, active: !!time && time.startsWith("15:") },
-    { hour: "18:00", value: 15, active: !!time && time.startsWith("18:") },
-  ];
 
   // Browser Geolocation GPS locator
   const handleDetectLocation = () => {

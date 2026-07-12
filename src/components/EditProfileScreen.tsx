@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { ScreenId } from "../types";
-import { ArrowLeft, Camera, Save, Mail, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, Save, Mail, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
 import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { updateProfile, sendPasswordResetEmail } from "firebase/auth";
@@ -14,13 +14,12 @@ export default function EditProfileScreen({ onNavigate }: EditProfileScreenProps
   const [saving, setSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     name: "",
+    phone: "",
     plate: "",
     company: "",
-    photoURL: "",
   });
 
   useEffect(() => {
@@ -36,9 +35,9 @@ export default function EditProfileScreen({ onNavigate }: EditProfileScreenProps
           const data = snap.data();
           setFormData({
             name: data.name || user.displayName || "",
+            phone: data.phone || "",
             plate: data.plate || "",
             company: data.company || "",
-            photoURL: data.photoURL || user.photoURL || "",
           });
         }
       } catch (e) {
@@ -52,25 +51,6 @@ export default function EditProfileScreen({ onNavigate }: EditProfileScreenProps
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Check size limit (e.g., max 1MB for Firestore base64 string safety)
-    if (file.size > 1024 * 1024) {
-      setErrorMsg("A imagem deve ter no máximo 1MB.");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      if (event.target?.result) {
-        setFormData({ ...formData, photoURL: event.target.result as string });
-      }
-    };
-    reader.readAsDataURL(file);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -90,15 +70,14 @@ export default function EditProfileScreen({ onNavigate }: EditProfileScreenProps
       // 1. Update Firestore
       await setDoc(doc(db, "users", user.uid), {
         name: formData.name,
+        phone: formData.phone,
         plate: formData.plate,
         company: formData.company,
-        photoURL: formData.photoURL,
       }, { merge: true });
 
       // 2. Update Firebase Auth Profile
       await updateProfile(user, {
         displayName: formData.name,
-        photoURL: formData.photoURL || null,
       });
 
       setSuccessMsg("Perfil atualizado com sucesso!");
@@ -143,32 +122,13 @@ export default function EditProfileScreen({ onNavigate }: EditProfileScreenProps
       ) : (
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 relative -top-4">
           
-          {/* Avatar Upload */}
+          {/* Avatar */}
           <div className="flex flex-col items-center justify-center">
-            <div 
-              className="relative w-24 h-24 rounded-full border-4 border-white shadow-lg bg-slate-200 overflow-hidden cursor-pointer group"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {formData.photoURL ? (
-                <img src={formData.photoURL} alt="Perfil" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-blue-100 text-blue-900 font-black text-3xl uppercase">
-                  {formData.name.charAt(0) || "M"}
-                </div>
-              )}
-              
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Camera className="w-8 h-8 text-white" />
+            <div className="relative w-24 h-24 rounded-full border-4 border-white shadow-lg bg-slate-200 overflow-hidden">
+              <div className="w-full h-full flex items-center justify-center bg-blue-100 text-blue-900 font-black text-3xl uppercase">
+                {formData.name.charAt(0) || "M"}
               </div>
             </div>
-            <p className="text-xs text-slate-400 mt-2 font-bold tracking-wide">Tocar para alterar foto</p>
-            <input 
-              type="file" 
-              accept="image/*" 
-              className="hidden" 
-              ref={fileInputRef} 
-              onChange={handleFileChange}
-            />
           </div>
 
           {/* Feedback Messages */}
@@ -194,6 +154,18 @@ export default function EditProfileScreen({ onNavigate }: EditProfileScreenProps
                 onChange={handleChange}
                 className="w-full bg-white border border-slate-200 p-3.5 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition"
                 required
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Telefone</label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="(00) 00000-0000"
+                className="w-full bg-white border border-slate-200 p-3.5 rounded-2xl text-sm font-bold text-slate-800 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition"
               />
             </div>
 

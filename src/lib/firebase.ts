@@ -1,25 +1,36 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore, doc, getDocFromServer } from "firebase/firestore";
-import firebaseConfig from "../../firebase-applet-config.json";
 
-// Initialize Firebase with the dynamically provisioned configuration
+// Firebase config is provided via environment variables (see .env.example).
+// It is never committed to the repository — set these in your local .env
+// file and in the deploy environment (e.g. GitHub Actions secrets).
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || undefined,
+};
+
+// Initialize Firebase with the environment-provided configuration
 const app = initializeApp(firebaseConfig);
 
 // Initialize Authentication
 export const auth = getAuth(app);
 
 // Initialize Firestore with custom database ID from config
-export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId); /* CRITICAL: The app will break without this line */
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId as string); /* CRITICAL: The app will break without this line */
 
 // Validate Connection to Firestore on boot
 async function testConnection() {
-  const isPlaceholderConfig = !firebaseConfig || 
-    firebaseConfig.projectId === "remixed-project-id" || 
-    firebaseConfig.apiKey === "remixed-api-key";
+  const isPlaceholderConfig = !firebaseConfig.apiKey || !firebaseConfig.projectId;
 
   if (isPlaceholderConfig) {
-    console.info("Firebase is running with placeholder/demo credentials. Run the Firebase Setup tool to provision a real database.");
+    console.info("Firebase is not configured. Copy .env.example to .env and set your Firebase project credentials.");
     return;
   }
 
@@ -80,4 +91,3 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   console.error("Firestore Error Detailed Object: ", JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
-
