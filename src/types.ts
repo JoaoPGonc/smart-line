@@ -49,6 +49,8 @@ export interface Appointment {
     lng: number;
     durationMinutes?: number;
   }>;
+  osrmFailed?: boolean;
+  overpassFailed?: boolean;
 }
 
 export interface TrafficAlert {

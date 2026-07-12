@@ -67,6 +67,15 @@ export default function MapComponent({
     if (onLoadingChange) onLoadingChange(loadingRoute);
   }, [loadingRoute, onLoadingChange]);
   const [showRecenterBtn, setShowRecenterBtn] = useState(false);
+  const [apiFallbackAlert, setApiFallbackAlert] = useState<"osrm" | "overpass" | null>(null);
+
+  useEffect(() => {
+    if (stops && stops.length > 0) {
+      setApiFallbackAlert(null);
+    } else if (stops && stops.length === 0) {
+      setApiFallbackAlert("overpass");
+    }
+  }, [stops]);
 
   const routePointsRef = useRef<[number, number][]>([]);
   const truckMarkerRef = useRef<L.Marker | null>(null);
@@ -461,16 +470,39 @@ export default function MapComponent({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      fetch(osrmUrl, { signal: controller.signal })
-        .then((res) => {
-          if (!res.ok) throw new Error("OSRM limit reached or network error");
-          return res.json();
-        })
-        .then(processRouteData)
-        .catch((err) => {
+      const fetchWithFallback = async () => {
+        try {
+          const res = await fetch(osrmUrl, { signal: controller.signal });
+          if (!res.ok) {
+            throw new Error(`OSRM multi-point query returned status ${res.status}`);
+          }
+          const data = await res.json();
+          processRouteData(data);
+        } catch (err) {
           if (!mapInstanceRef.current || mapInstanceRef.current !== map) return;
+          console.warn("Multi-point OSRM route fetch failed. Retrying with direct start-to-end road fallback...", err);
 
-          console.warn("Falling back to direct geodesic route polyline:", err);
+          if (stopsToRoute.length > 0) {
+            try {
+              const directOsrmUrl = `https://router.project-osrm.org/route/v1/driving/${startCoords.lng},${startCoords.lat};${endCoords.lng},${endCoords.lat}?overview=full&geometries=geojson&steps=${needsTurnByTurn}`;
+              const directRes = await fetch(directOsrmUrl, { signal: controller.signal });
+              if (directRes.ok) {
+                const directData = await directRes.json();
+                processRouteData(directData);
+                return;
+              } else {
+                console.warn(`Direct OSRM fallback returned status ${directRes.status}`);
+              }
+            } catch (fallbackErr) {
+              console.warn("Direct start-to-end OSRM fallback failed too:", fallbackErr);
+            }
+          }
+
+          // Ultimate fallback: direct geodesic straight line
+          console.warn("Both multi-point and direct OSRM fetches failed. Falling back to straight geodesic path.");
+          if (!stopsRef.current || stopsRef.current.length === 0) {
+            setApiFallbackAlert("osrm");
+          }
           const fallbackPoints: [number, number][] = [
             [startCoords.lat, startCoords.lng],
             [endCoords.lat, endCoords.lng]
@@ -491,7 +523,10 @@ export default function MapComponent({
           if (routeMode === "active") {
             updateTruckPosition(map, fallbackPoints);
           }
-        })
+        }
+      };
+
+      fetchWithFallback()
         .finally(() => {
           clearTimeout(timeoutId);
           if (mapInstanceRef.current && mapInstanceRef.current === map) {
@@ -621,6 +656,43 @@ export default function MapComponent({
           <div className="bg-slate-900/95 text-slate-200 text-[10px] font-mono py-1.5 px-2.5 rounded-lg border border-slate-800 backdrop-blur-md flex items-center gap-1.5 shadow-md">
             <span className={`w-2 h-2 rounded-full ${loadingRoute ? "bg-amber-500 animate-pulse" : "bg-blue-500 animate-pulse"}`}></span>
             {loadingRoute ? "Traçando Rota..." : "Navegação por GPS"}
+          </div>
+        </div>
+      )}
+
+      {/* Alert Banner for API Fallbacks */}
+      {apiFallbackAlert && (
+        <div className="absolute top-16 left-3 right-3 z-30 animate-in slide-in-from-top-4 duration-300">
+          <div className="bg-slate-900/95 border-l-4 border-amber-500 text-slate-100 p-3.5 rounded-xl shadow-2xl backdrop-blur-md flex gap-3 items-start relative overflow-hidden">
+            <span className="text-amber-500 text-lg mt-0.5 leading-none">⚠️</span>
+            <div className="flex-1 pr-6">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
+                {apiFallbackAlert === "osrm" ? "Mapa Simplificado" : "Paradas Estimadas"}
+              </h4>
+              <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
+                {apiFallbackAlert === "osrm" 
+                  ? "Instabilidade temporária no mapa. Traçamos um caminho provisório para evitar travamentos. Suas paradas e horários continuam 100% corretos!"
+                  : "O buscador de postos está instável. Sugerimos paradas automáticas seguras ao longo da rodovia para manter seu cronograma em dia."}
+              </p>
+              <div className="mt-1.5 flex gap-2">
+                <span className="text-[9px] bg-amber-500/10 text-amber-400 py-0.5 px-1.5 rounded font-mono border border-amber-500/20">
+                  {apiFallbackAlert === "osrm" ? "Aviso de Rota" : "Aviso de Postos"}
+                </span>
+                <span className="text-[9px] bg-slate-800 text-slate-400 py-0.5 px-1.5 rounded border border-slate-700">
+                  Modo Provisório
+                </span>
+              </div>
+            </div>
+            <button 
+              onClick={() => setApiFallbackAlert(null)}
+              className="absolute top-2.5 right-2.5 text-slate-400 hover:text-white hover:bg-slate-800 p-1 rounded-lg transition"
+              title="Fechar aviso"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
           </div>
         </div>
       )}

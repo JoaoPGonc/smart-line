@@ -77,11 +77,11 @@ export default function RouteOverviewScreen({
   const durMins = parseDurationMinutes(duration);
   const stops = appointment?.customStops || [];
 
-  // Calculate remaining stops (only up to the number of generated stops)
-  const uncheckedCount = stops.filter((_, idx) => !checkedStops[idx]).length;
-  const remainingText = uncheckedCount === 0 
-    ? "TODAS AS PARADAS FEITAS" 
-    : `${uncheckedCount} PARADAS RESTANTES`;
+  // Calculate selected stops
+  const checkedCount = stops.filter((_, idx) => checkedStops[idx]).length;
+  const remainingText = stops.length > 0 && checkedCount === stops.length
+    ? "TODAS AS PARADAS SELECIONADAS"
+    : `${checkedCount} ${checkedCount === 1 ? "PARADA SELECIONADA" : "PARADAS SELECIONADAS"}`;
 
   return (
     <div id="route-overview" className="flex flex-col h-full bg-slate-50 overflow-hidden font-sans">
@@ -131,6 +131,24 @@ export default function RouteOverviewScreen({
                   <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" />
                 </svg>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Aviso de instabilidade de API de terceiros / Fallback */}
+        {(appointment?.osrmFailed || appointment?.overpassFailed) && (!appointment?.customStops || appointment.customStops.length === 0) && (
+          <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-2xl flex gap-3 items-start shadow-xs animate-in fade-in duration-300">
+            <span className="text-amber-600 text-lg leading-none mt-0.5">⚠️</span>
+            <div>
+              <h4 className="text-xs font-bold text-amber-800 uppercase tracking-wide mb-0.5">
+                {appointment?.osrmFailed ? "Aviso: Mapa Simplificado" : "Aviso: Paradas Estimadas"}
+              </h4>
+              <p className="text-[11px] text-amber-700 leading-relaxed font-medium">
+                {appointment?.osrmFailed 
+                  ? "O mapa de estradas está instável no momento. Traçamos uma rota direta, mas fique tranquilo: suas paradas, horários de viagem e o agendamento no porto estão 100% garantidos e funcionando normalmente!"
+                  : "O buscador de postos está com lentidão. Sugerimos paradas de descanso automáticas seguras ao longo do caminho para manter seu cronograma e segurança em dia!"
+                }
+              </p>
             </div>
           </div>
         )}
