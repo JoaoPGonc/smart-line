@@ -7,6 +7,12 @@
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
+@keyframes shimmer {
+  100% {
+    transform: skewX(-20deg) translateX(200%);
+  }
+}
+
 /* Smart Dark Mode Override Engine */
 .dark-mode-container {
   color-scheme: dark;
@@ -116,7 +122,9 @@
   background-color: #2563eb !important;
 }
 
-.dark-mode-container .text-blue-900 {
+.dark-mode-container .text-blue-900,.dark-mode-container .text-blue-800,.dark-mode-container .text-blue-700 {
   color: #60a5fa !important;
 }
 
+.dark-mode-container .bg-blue-100\/70 { background-color: #1e293b !important; }
+.dark-mode-container .text-blue-800, .dark-mode-container .text-blue-700 { color: #60a5fa !important; }

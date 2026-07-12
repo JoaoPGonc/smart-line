@@ -19,9 +19,7 @@ import {
   MapPin,
 } from "lucide-react";
 import {
-  getStopsForRoute,
   parseDurationMinutes,
-  computeStopTime,
   getProgressAlongRoute,
   findCurrentStep,
   getManeuverText,
@@ -255,14 +253,8 @@ export default function ActiveRouteScreen({
   // useMemo garante que o array só muda quando os dados do agendamento mudam de verdade,
   // evitando que o MapComponent remonte o mapa a cada render por referência nova.
   const stops = useMemo(() => {
-    if (appointment?.customStops && appointment.customStops.length > 0) {
-      return appointment.customStops;
-    }
-    return getStopsForRoute(
-      appointment?.destination || "Porto de Tubarão",
-      (percent, index) => computeStopTime(appointment?.time || "11:30", durMins, percent, index)
-    );
-  }, [appointment?.customStops, appointment?.destination, appointment?.time, durMins]);
+    return appointment?.customStops || [];
+  }, [appointment?.customStops]);
 
   const nextUncheckedStopIndex = checkedStops.findIndex((c) => !c);
   const activeStopIndex =
@@ -417,7 +409,7 @@ export default function ActiveRouteScreen({
     const destParam = `${destCoords.lat},${destCoords.lng}`;
 
     const waypointsParam = stops
-      .filter((s) => typeof s.lat === "number" && typeof s.lng === "number")
+      .filter((s, i) => typeof s.lat === "number" && typeof s.lng === "number" && checkedStops[i])
       .map((s) => `${s.lat},${s.lng}`)
       .join("|");
 
@@ -599,13 +591,8 @@ export default function ActiveRouteScreen({
             </div>
             <div className="text-[10px] space-y-0.5 font-bold mt-1 pt-1 border-t border-slate-100">
               <p className="text-slate-500">
-                Chegada: <span className="text-slate-800">{targetEta}</span> <span className="text-[9px] text-slate-400 font-normal">({targetDate})</span>
+                Tempo Restante: <span className="text-slate-800">{String(remainingHours).padStart(2, "0")}:{String(remainingMinutes).padStart(2, "0")}</span> <span className="text-[9px] text-slate-400 font-normal">(hh:mm restantes)</span>
               </p>
-              {!isNextTargetDest && (
-                <p className="text-slate-500 pt-0.5">
-                  Destino: <span className="text-slate-800">{eta}</span> <span className="text-[9px] text-slate-400 font-normal">({arrivalDate})</span>
-                </p>
-              )}
               {isNextTargetDest && (
                 <p className="text-emerald-600 flex items-center gap-0.5 pt-0.5">↘ Fluxo Verde no Porto</p>
               )}

@@ -399,6 +399,7 @@ export default function App() {
             originCoords={originCoords}
             destCoords={destCoords}
             appointment={appointment}
+            checkedStops={checkedStops}
           />
         );
       case ScreenId.RouteOverview:

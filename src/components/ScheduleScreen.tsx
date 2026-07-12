@@ -41,15 +41,18 @@ export default function ScheduleScreen({
   const [step, setStep] = useState(1);
   const [appointmentToDelete, setAppointmentToDelete] = useState<number | null>(null);
 
-  const [queueTime, setQueueTime] = useState("1h 45m");
+  const queueTime = "1h 45m";
   const [detectingGps, setDetectingGps] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
+  const [calculatingProgress, setCalculatingProgress] = useState(0);
   const [loadingLabel, setLoadingLabel] = useState("ANALISANDO ROTA...");
   const [gpsError, setGpsError] = useState("");
 
   const [originSuggestions, setOriginSuggestions] = useState<{name: string, lat: number, lng: number}[]>([]);
   const [showOriginSuggestions, setShowOriginSuggestions] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isCancelledRef = useRef(false);
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const [destSuggestions, setDestSuggestions] = useState<string[]>([]);
   const [showDestSuggestions, setShowDestSuggestions] = useState(false);
@@ -315,6 +318,12 @@ export default function ScheduleScreen({
     }
   }, [destCoords]);
 
+  const handleCancelGeocoding = () => {
+    isCancelledRef.current = true;
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    setGeocoding(false);
+  };
+
   const handleConfirm = async () => {
     if (!origin.trim()) {
       setError("Por favor, preencha o ponto de partida.");
@@ -333,7 +342,19 @@ export default function ScheduleScreen({
       return;
     }
     setError("");
+    isCancelledRef.current = false;
     setGeocoding(true);
+    setCalculatingProgress(0);
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    progressIntervalRef.current = setInterval(() => {
+      setCalculatingProgress(prev => {
+        if (prev >= 98) return prev;
+        // Logarithmic decay formula for maximum smoothness and fluid motion
+        const remaining = 98 - prev;
+        const increment = Math.max(0.15, remaining * 0.04 + Math.random() * 0.25);
+        return parseFloat((prev + increment).toFixed(2));
+      });
+    }, 150);
     setLoadingLabel("GEOCODIFICANDO ORIGEM...");
     let finalOriginCoords = originCoords;
 
@@ -341,6 +362,7 @@ export default function ScheduleScreen({
     if (!originCoords || originCoords.name !== origin) {
       try {
         const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(origin)}&format=json&limit=1&countrycodes=br`);
+        if (isCancelledRef.current) return;
         const data = await res.json();
         if (data && data[0]) {
           const lat = parseFloat(data[0].lat);
@@ -364,6 +386,7 @@ export default function ScheduleScreen({
     if (!destCoords || destCoords.name !== destination) {
       try {
         const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(destination)}&format=json&limit=1&countrycodes=br`);
+        if (isCancelledRef.current) return;
         const data = await res.json();
         if (data && data[0]) {
           const lat = parseFloat(data[0].lat);
@@ -410,6 +433,7 @@ export default function ScheduleScreen({
     // Validation: Ensure there is no oceanic/unreasonable route (over 3800 km inside Brazil)
     if (distanceKm > 3800) {
       setError("A rota excede 3.800 km (sem ligação terrestre viável ou fora do país). Por favor, verifique se digitou os endereços ou portos corretos localizados no Brasil.");
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setGeocoding(false);
       return;
     }
@@ -505,6 +529,9 @@ export default function ScheduleScreen({
         requiresScale,
       }
     );
+    
+    if (isCancelledRef.current) return;
+
     let finalStops = fetched.stops;
     const actualDrivingDurationMins = fetched.routeDurationMins;
 
@@ -579,6 +606,8 @@ export default function ScheduleScreen({
       portAppId = await logPortAppointment(destination, date, arrivalHourStr, auth.currentUser.uid);
     }
     
+    if (isCancelledRef.current) return;
+    
     const appointment: Appointment = {
       origin,
       destination,
@@ -607,10 +636,18 @@ export default function ScheduleScreen({
       appointment.portAppointmentId = portAppId;
     }
     
-    onSetAppointment(appointment);
+    if (isCancelledRef.current) return;
+
+    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    setCalculatingProgress(100);
+    setLoadingLabel("ROTA GERADA COM SUCESSO!");
     
-    setGeocoding(false);
-    onNavigate(ScreenId.ScheduleConfirmed);
+    setTimeout(() => {
+      if (isCancelledRef.current) return;
+      onSetAppointment(appointment);
+      setGeocoding(false);
+      onNavigate(ScreenId.ScheduleConfirmed);
+    }, 600);
   };
 
   return (
@@ -928,28 +965,64 @@ export default function ScheduleScreen({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-between gap-3">
-          <button
-            onClick={() => setStep(1)}
-            className="bg-white text-blue-950 border border-slate-200 hover:bg-slate-50 font-bold py-3.5 px-6 rounded-xl shadow-xs text-xs transition uppercase cursor-pointer"
-          >
-            VOLTAR
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={geocoding}
-            className="bg-blue-950 hover:bg-blue-900 active:scale-98 text-white font-bold py-3.5 px-6 rounded-xl shadow-md flex items-center justify-center gap-2 tracking-wider text-xs transition uppercase disabled:opacity-50 cursor-pointer"
-          >
-            {geocoding ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" /> {loadingLabel}
-              </>
-            ) : (
-              <>
-                CONFIRMAR <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </button>
+        <div className="flex flex-col gap-3">
+          <div className="flex justify-between gap-3">
+            <button
+              onClick={() => setStep(1)}
+              className="bg-white text-blue-950 border border-slate-200 hover:bg-slate-50 font-bold py-3.5 px-6 rounded-xl shadow-xs text-xs transition uppercase cursor-pointer"
+            >
+              VOLTAR
+            </button>
+            <button
+              onClick={handleConfirm}
+              disabled={geocoding}
+              className="bg-blue-950 hover:bg-blue-900 active:scale-98 text-white font-bold py-3.5 px-6 rounded-xl shadow-md flex items-center justify-center gap-2 tracking-wider text-xs transition uppercase disabled:opacity-50 cursor-pointer"
+            >
+              {geocoding ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" /> {loadingLabel}
+                </>
+              ) : (
+                <>
+                  CONFIRMAR <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
+          
+          {geocoding && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+              <div className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-slate-100 flex flex-col items-center text-center animate-in zoom-in-95 duration-300">
+                <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4 border border-blue-100">
+                  <RefreshCw className="w-6 h-6 animate-spin" style={{ animationDuration: "2.5s" }} />
+                </div>
+                <h3 className="text-[13px] font-bold text-blue-950 uppercase tracking-wider mb-1">Calculando Rota</h3>
+                <p className="text-xs text-slate-500 mb-6 font-medium">{loadingLabel}</p>
+                
+                <div className="w-full">
+                  <div className="flex justify-between text-[11px] font-bold text-slate-700 mb-2 uppercase tracking-wider">
+                    <span>Progresso</span>
+                    <span className="text-blue-600">{Math.min(100, Math.round(calculatingProgress))}%</span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden border border-slate-200">
+                    <div 
+                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-500 ease-out relative overflow-hidden" 
+                      style={{ width: `${calculatingProgress}%` }}
+                    >
+                      <div className="absolute inset-0 bg-white/20" style={{ transform: 'skewX(-20deg) translateX(-100%)', animation: 'shimmer 2.5s infinite ease-in-out' }} />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleCancelGeocoding}
+                  className="mt-6 w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-colors text-xs uppercase tracking-wider cursor-pointer"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         </>
         )}

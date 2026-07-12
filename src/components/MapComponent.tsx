@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import * as L from "leaflet";
-import { getStopsForRoute, snapToRoute, OsrmLeg } from "../utils/routeUtils";
+import { snapToRoute, OsrmLeg } from "../utils/routeUtils";
 import { Compass, LocateFixed } from "lucide-react";
 import { TrafficAlert } from "../types";
 
@@ -313,9 +313,7 @@ export default function MapComponent({
       stopMarkersRef.current = [];
       if (!points || !Array.isArray(points) || points.length === 0) return;
 
-      const stopsToDraw = stopsRef.current && stopsRef.current.length > 0
-        ? stopsRef.current
-        : getStopsForRoute(endCoords.name || "", () => "");
+      const stopsToDraw = stopsRef.current || [];
 
       stopsToDraw.forEach((stop, idx) => {
         // Snap raw coordinates to the computed OSRM road polyline to prevent visual drift
@@ -355,9 +353,7 @@ export default function MapComponent({
       `${startCoords.lng},${startCoords.lat}`
     ];
     
-    const stopsToRoute = stopsRef.current && stopsRef.current.length > 0
-      ? stopsRef.current
-      : getStopsForRoute(endCoords.name || "", () => "");
+    const stopsToRoute = stopsRef.current || [];
 
     stopsToRoute.forEach(stop => {
       coordsList.push(`${stop.lng},${stop.lat}`);
@@ -376,7 +372,7 @@ export default function MapComponent({
     const cacheKey = needsTurnByTurn ? `${routeKey}|steps` : routeKey;
     const cachedRoute = routeCache.get(cacheKey);
 
-    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${routeKey}?overview=${needsTurnByTurn ? "full" : "simplified"}&geometries=geojson&steps=${needsTurnByTurn}`;
+    const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${routeKey}?overview=full&geometries=geojson&steps=${needsTurnByTurn}`;
 
     const processRouteData = (data: any) => {
       if (!mapInstanceRef.current || mapInstanceRef.current !== map) return;

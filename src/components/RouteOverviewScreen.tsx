@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { ScreenId, Appointment } from "../types";
 import BottomNavigation from "./BottomNavigation";
 import { Clock, Hourglass, ArrowRight, CheckCircle2, ShieldAlert, CheckSquare, Square, Navigation2, Check, Landmark, MapPin, RefreshCw, Calendar, ExternalLink } from "lucide-react";
-import { getStopsForRoute, parseDurationMinutes, computeStopTime } from "../utils/routeUtils";
+import { parseDurationMinutes, generateGoogleMapsUrl } from "../utils/routeUtils";
 
 interface RouteOverviewScreenProps {
   onNavigate: (screen: ScreenId) => void;
@@ -26,6 +26,8 @@ export default function RouteOverviewScreen({
   originCoords,
   destCoords,
 }: RouteOverviewScreenProps) {
+  const [showStartPrompt, setShowStartPrompt] = useState(false);
+
 
   // 1. Pending view when no appointment is booked yet
   if (!appointments || appointments.length === 0) {
@@ -73,9 +75,7 @@ export default function RouteOverviewScreen({
   const arrivalDate = appointment?.arrivalDate ? formatDisplayDate(appointment.arrivalDate) : (appointment?.date ? formatDisplayDate(appointment.date) : "Hoje");
 
   const durMins = parseDurationMinutes(duration);
-  const stops = appointment?.customStops && appointment.customStops.length > 0
-    ? appointment.customStops
-    : getStopsForRoute(destination, (percent, index) => computeStopTime(departure, durMins, percent, index));
+  const stops = appointment?.customStops || [];
 
   // Calculate remaining stops (only up to the number of generated stops)
   const uncheckedCount = stops.filter((_, idx) => !checkedStops[idx]).length;
@@ -251,13 +251,62 @@ export default function RouteOverviewScreen({
 
         {/* Start Route Button */}
         <button
-          onClick={() => onNavigate(ScreenId.ActiveRoute)}
+          onClick={() => setShowStartPrompt(true)}
           className="w-full bg-blue-950 hover:bg-blue-900 active:scale-98 text-white font-bold py-3.5 px-4 rounded-xl shadow-md flex items-center justify-center gap-2 tracking-wider text-xs transition uppercase cursor-pointer"
         >
           <Navigation2 className="w-4 h-4 fill-white stroke-none rotate-45" /> INICIAR ROTA
         </button>
       </div>
 
+
+      {showStartPrompt && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-fade-in">
+            <div className="p-6 text-center space-y-4">
+              <div className="w-14 h-14 bg-blue-50 text-blue-900 rounded-full flex items-center justify-center mx-auto mb-2">
+                <Navigation2 className="w-7 h-7" />
+              </div>
+              <h3 className="text-lg font-black text-slate-800">Iniciar Viagem</h3>
+              <p className="text-sm text-slate-500">
+                Onde você deseja acompanhar a sua rota e paradas ao longo da viagem?
+              </p>
+              
+              <div className="flex flex-col gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setShowStartPrompt(false);
+                    onNavigate(ScreenId.ActiveRoute);
+                  }}
+                  className="w-full bg-blue-950 text-white font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider"
+                >
+                  Seguir no Smart Line
+                </button>
+                <button
+                  onClick={() => {
+                    setShowStartPrompt(false);
+                    const selectedStops = (appointment?.customStops || []).filter((_, idx) => checkedStops[idx]);
+                    const url = generateGoogleMapsUrl(originCoords, destCoords, selectedStops);
+                    if (url) window.open(url, '_blank');
+                  }}
+                  className="w-full bg-slate-100 text-slate-700 font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2"
+                >
+                  <MapPin className="w-4 h-4" />
+                  Ir para Google Maps
+                </button>
+                <p className="text-[10px] text-slate-400 text-center leading-tight -mt-1 mb-1">
+                  * O Google Maps não considera o tempo de espera de cada parada.
+                </p>
+                <button
+                  onClick={() => setShowStartPrompt(false)}
+                  className="w-full bg-white border border-slate-200 text-slate-400 font-bold py-3 rounded-xl text-xs uppercase tracking-wider mt-1"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Bottom Navigation Tabs */}
       <BottomNavigation activeTab="trajeto" onNavigate={onNavigate} />
     </div>
