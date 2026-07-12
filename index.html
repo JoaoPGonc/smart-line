@@ -1,17 +1,20 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-br">
   <head>
-    <script>
-  try {
-    localStorage.getItem('teste');
-  } catch (e) {
-    var memoriaFalsa = { getItem: function() { return null; }, setItem: function() {}, removeItem: function() {}, clear: function() {} };
-    Object.defineProperty(window, 'localStorage', { value: memoriaFalsa });
-    Object.defineProperty(window, 'sessionStorage', { value: memoriaFalsa });
-  }
-</script>
+    <script src="/storage-fallback.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Smart Line — aplicativo de logística para caminhoneiros: planeje rotas, acompanhe filas de porto, agende horários e receba alertas de trânsito em tempo real." />
+    <meta name="theme-color" content="#0f172a" />
+    <meta property="og:title" content="Smart Line" />
+    <meta property="og:description" content="Aplicativo de logística para caminhoneiros: rotas, filas de porto, agendamento e alertas de trânsito." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/icon-512.png" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Smart Line" />
+    <meta name="twitter:description" content="Aplicativo de logística para caminhoneiros: rotas, filas de porto, agendamento e alertas de trânsito." />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
     <title>Smart Line</title>
   </head>
   <body>
@@ -19,4 +22,3 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

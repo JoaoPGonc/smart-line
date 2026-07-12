@@ -28,6 +28,7 @@ import {
   getClosestRoutePointIndex,
   getRouteDistanceBetweenPoints,
   snapToRoute,
+  generateGoogleMapsUrl,
   OsrmLeg,
   OsrmStep,
 } from "../utils/routeUtils";
@@ -403,22 +404,9 @@ export default function ActiveRouteScreen({
   // ── Link para abrir a rota no Google Maps (app nativo no celular, web no desktop) ──
   const googleMapsUrl = useMemo(() => {
     const origin = userGpsCoords || originCoords;
-    if (!origin || !destCoords) return null;
-
-    const originParam = `${origin.lat},${origin.lng}`;
-    const destParam = `${destCoords.lat},${destCoords.lng}`;
-
-    const waypointsParam = stops
-      .filter((s, i) => typeof s.lat === "number" && typeof s.lng === "number" && checkedStops[i])
-      .map((s) => `${s.lat},${s.lng}`)
-      .join("|");
-
-    let url = `https://www.google.com/maps/dir/?api=1&origin=${originParam}&destination=${destParam}&travelmode=driving`;
-    if (waypointsParam) {
-      url += `&waypoints=${encodeURIComponent(waypointsParam)}`;
-    }
-    return url;
-  }, [userGpsCoords, originCoords, destCoords, stops]);
+    const activeStops = stops.filter((_, i) => checkedStops[i]);
+    return generateGoogleMapsUrl(origin, destCoords, activeStops);
+  }, [userGpsCoords, originCoords, destCoords, stops, checkedStops]);
 
   // ── Abre a rota do Google Maps via a ponte do App Inventor (fora do app,   ──
   // ── deixando o Android decidir entre app nativo ou navegador) ou dentro    ──
@@ -533,7 +521,7 @@ export default function ActiveRouteScreen({
               <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">
                 A SEGUIR NO SEU TRAJETO
               </p>
-              {activeStopIndex < 3 && (
+              {activeStopIndex < stops.length && (
                 <span className="text-[8px] font-black text-orange-400 bg-orange-950/40 border border-orange-900/30 px-2 py-0.5 rounded-full uppercase">
                   Recomendado
                 </span>

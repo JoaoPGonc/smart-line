@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // Global Safety Net default-deny catch-all
     match /{document=**} {
       allow read, write: if false;
@@ -27,20 +27,21 @@ service cloud.firestore {
         && (!data.keys().hasAny(['name']) || (data.name is string && data.name.size() <= 200))
         && (!data.keys().hasAny(['email']) || (data.email is string && data.email.size() <= 200))
         && (!data.keys().hasAny(['cpf']) || (data.cpf is string && data.cpf.size() <= 50))
+        && (!data.keys().hasAny(['phone']) || (data.phone is string && data.phone.size() <= 30))
         && (!data.keys().hasAny(['plate']) || (data.plate is string && data.plate.size() <= 50))
         && (!data.keys().hasAny(['company']) || (data.company is string && data.company.size() <= 200))
         && (!data.keys().hasAny(['createdAt']) || (data.createdAt is string && data.createdAt.size() <= 50))
         && (!data.keys().hasAny(['selectedAppointmentIndex']) || (data.selectedAppointmentIndex == null || data.selectedAppointmentIndex is number))
         && (!data.keys().hasAny(['appointments']) || (data.appointments is list && data.appointments.size() <= 50))
         && (!data.keys().hasAny(['lastOriginCoords']) || (
-          data.lastOriginCoords is map 
+          data.lastOriginCoords is map
           && data.lastOriginCoords.keys().hasAll(['lat', 'lng', 'name'])
           && data.lastOriginCoords.lat is number
           && data.lastOriginCoords.lng is number
           && data.lastOriginCoords.name is string && data.lastOriginCoords.name.size() <= 500
         ))
         && (!data.keys().hasAny(['lastDestCoords']) || (
-          data.lastDestCoords is map 
+          data.lastDestCoords is map
           && data.lastDestCoords.keys().hasAll(['lat', 'lng', 'name'])
           && data.lastDestCoords.lat is number
           && data.lastDestCoords.lng is number
@@ -59,34 +60,58 @@ service cloud.firestore {
 
     function isValidPortAppointment(data) {
       return data.keys().hasAll(['portId', 'date', 'timestamp', 'uid'])
-        && data.portId is string 
-        && data.date is string 
+        && data.portId is string
+        && data.date is string
         && (!data.keys().hasAny(['time']) || data.time is string)
         && data.timestamp is timestamp
         && data.uid == request.auth.uid;
+    }
+
+    function isValidTrafficAlert(data) {
+      return data.keys().hasAll(['type', 'title', 'description', 'location', 'severity', 'createdAt', 'expiresAt', 'votesDown', 'authorId', 'lat', 'lng'])
+        && data.type is string && data.type.matches('^(accident|congestion|maintenance|blocked|other)$')
+        && data.title is string && data.title.size() <= 200
+        && data.description is string && data.description.size() <= 500
+        && data.location is string && data.location.size() <= 300
+        && data.severity is string && data.severity.matches('^(low|medium|high)$')
+        && data.createdAt is number
+        && data.expiresAt is number && data.expiresAt > data.createdAt
+        && data.votesDown == 0
+        && data.authorId is string
+        && data.lat is number
+        && data.lng is number;
     }
 
     match /users/{userId} {
       allow get: if isOwner(userId);
       allow create: if isOwner(userId) && isValidId(userId) && isValidUser(request.resource.data);
       allow update: if isOwner(userId) && isValidId(userId) && isValidUser(request.resource.data) && (
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'name', 'email', 'cpf', 'plate', 'company', 'createdAt', 'appointments', 'selectedAppointmentIndex', 'lastOriginCoords', 'lastDestCoords'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'name', 'email', 'cpf', 'phone', 'plate', 'company', 'createdAt', 'appointments', 'selectedAppointmentIndex', 'lastOriginCoords', 'lastDestCoords'])
       );
       allow delete: if false;
     }
 
     match /port_appointments/{docId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow create: if isSignedIn() && isValidPortAppointment(request.resource.data);
       allow update: if false;
       allow delete: if isOwner(resource.data.uid);
     }
 
     match /port_reports/{reportId} {
-      allow get: if true;
-      allow list: if true;
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
       allow create: if isSignedIn() && isValidQueueReport(request.resource.data);
       allow update: if false;
+      allow delete: if false;
+    }
+
+    match /traffic_alerts/{alertId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidTrafficAlert(request.resource.data);
+      allow update: if isSignedIn() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votesDown']) &&
+        request.resource.data.votesDown == resource.data.votesDown + 1;
       allow delete: if false;
     }
   }

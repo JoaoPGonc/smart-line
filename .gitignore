@@ -6,3 +6,11 @@ coverage/
 *.log
 .env*
 !.env.example
+firebase-applet-config.json
+debug-*.ts
+debug-*.txt
+patch*.cjs
+patch*.mjs
+patch*.js
+delete_old_appointments.js
+rewrite.py

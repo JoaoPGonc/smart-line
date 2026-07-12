@@ -37,7 +37,7 @@ export default function PortsScreen({ onNavigate }: PortsScreenProps) {
           const closestId = findClosestPort(latitude, longitude);
           setSelectedPortId(closestId);
         },
-        (error) => console.log("Geolocation error:", error),
+        (error) => console.warn("Geolocation error:", error),
         { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
       );
     }
