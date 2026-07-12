@@ -262,23 +262,73 @@ export default function ScheduleScreen({
     setDetectingGps(true);
     setGpsError("");
 
+    let resolved = false;
+
+    // Failsafe: if the browser or system blocks GPS silently and doesn't call back within 5.5 seconds, use fallback
+    const failsafeTimeout = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        console.warn("GPS request hung. Using fallback.");
+        useDefaultGpsFallback("O GPS demorou a responder. Usando localização padrão.");
+      }
+    }, 5500);
+
+    const useDefaultGpsFallback = (msg?: string) => {
+      const fallbackLat = -20.2976;
+      const fallbackLng = -40.2958;
+      const fallbackAddr = "Vitória, ES (Localização Padrão)";
+      setOrigin(fallbackAddr);
+      onSetOriginCoords({
+        lat: fallbackLat,
+        lng: fallbackLng,
+        name: fallbackAddr
+      });
+      if (msg) {
+        setGpsError(msg);
+      }
+      setDetectingGps(false);
+    };
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(failsafeTimeout);
         const { latitude, longitude } = position.coords;
         
         // Reverse geocode via OpenStreetMap Nominatim API (100% free)
-        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`)
+        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=pt`)
           .then((res) => {
             if (!res.ok) throw new Error("API error");
             return res.json();
           })
           .then((data) => {
-            const address = data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-            setOrigin(address);
+            // Simplify address representation (e.g., "Vitória, Espírito Santo, Brasil")
+            const address = data.address;
+            let displayAddress = "";
+            if (address) {
+              const city = address.city || address.town || address.village || address.suburb || "";
+              const state = address.state || "";
+              if (city && state) {
+                displayAddress = `${city}, ${state}`;
+              } else {
+                displayAddress = data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+              }
+            } else {
+              displayAddress = data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+            }
+
+            // Shorten if too long
+            if (displayAddress.length > 50) {
+              const parts = displayAddress.split(",");
+              displayAddress = parts.slice(0, 2).join(",").trim();
+            }
+
+            setOrigin(displayAddress);
             onSetOriginCoords({
               lat: latitude,
               lng: longitude,
-              name: address
+              name: displayAddress
             });
           })
           .catch(() => {
@@ -295,20 +345,23 @@ export default function ScheduleScreen({
           });
       },
       (error) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(failsafeTimeout);
         console.warn("GPS Location unavailable, using default fallback:", error?.message || error);
-        // Fallback to a default location if GPS fails
-        const fallbackLat = -20.2976;
-        const fallbackLng = -40.2958;
-        const fallbackAddr = "Vitória, ES (Localização Padrão)";
-        setOrigin(fallbackAddr);
-        onSetOriginCoords({
-          lat: fallbackLat,
-          lng: fallbackLng,
-          name: fallbackAddr
-        });
-        setDetectingGps(false);
+        
+        let errorMsg = "Não foi possível obter a localização. Usando localização padrão.";
+        if (error.code === error.PERMISSION_DENIED) {
+          errorMsg = "Acesso à localização recusado. Usando localização padrão.";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          errorMsg = "Sinal de GPS indisponível no momento. Usando localização padrão.";
+        } else if (error.code === error.TIMEOUT) {
+          errorMsg = "Tempo de GPS esgotado. Usando localização padrão.";
+        }
+        
+        useDefaultGpsFallback(errorMsg);
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: false, timeout: 5000 }
     );
   };
 
@@ -630,6 +683,8 @@ export default function ScheduleScreen({
         requiresScale,
       },
       customStops: finalStops.map(s => ({ ...s, durationMinutes: s.durationMinutes ?? stopDurationMinutes })),
+      osrmFailed: fetched.osrmFailed,
+      overpassFailed: fetched.overpassFailed,
     };
     
     if (portAppId) {

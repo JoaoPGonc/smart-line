@@ -54,7 +54,7 @@ export default function App() {
   });
 
   // Track checked states for the 3 support stopovers on Screen 7
-  const [checkedStops, setCheckedStops] = useState<boolean[]>([false, false, false]);
+  const [checkedStops, setCheckedStops] = useState<boolean[]>([true, true, true]);
 
   // ── Global background GPS tracker ─────────────────────────────────────────
   // Runs once when the app loads and keeps updating localStorage continuously,
@@ -261,9 +261,9 @@ export default function App() {
   // Synchronize checkedStops length and states with the active appointment
   useEffect(() => {
     if (appointment && appointment.customStops) {
-      setCheckedStops(new Array(appointment.customStops.length).fill(false));
+      setCheckedStops(new Array(appointment.customStops.length).fill(true));
     } else {
-      setCheckedStops([false, false, false]);
+      setCheckedStops([true, true, true]);
     }
   }, [appointment?.id, appointment?.customStops?.length]);
 
