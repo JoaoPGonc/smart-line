@@ -7,7 +7,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(() => {
   return {
-    base: '/',
+    base: '/smart-line/',
     plugins: [
       react(), 
       tailwindcss(),
