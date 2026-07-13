@@ -16,21 +16,60 @@ const firebaseConfig = {
   firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || undefined,
 };
 
-// Initialize Firebase with the environment-provided configuration
-const app = initializeApp(firebaseConfig);
+const isPlaceholderConfig = !firebaseConfig.apiKey || !firebaseConfig.projectId;
 
-// Initialize Authentication
-export const auth = getAuth(app);
+let app = null;
+let initializedAuth = null;
+let initializedDb = null;
 
-// Initialize Firestore with custom database ID from config
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId as string); /* CRITICAL: The app will break without this line */
+if (!isPlaceholderConfig) {
+  try {
+    app = initializeApp(firebaseConfig);
+  } catch (error) {
+    console.error("Firebase initialization failed:", error);
+  }
+}
+
+if (app) {
+  try {
+    initializedAuth = getAuth(app);
+  } catch (error) {
+    console.error("Firebase Auth initialization failed:", error);
+  }
+}
+
+if (app) {
+  try {
+    initializedDb = getFirestore(app, firebaseConfig.firestoreDatabaseId as string);
+  } catch (error) {
+    console.error("Firebase Firestore initialization failed:", error);
+  }
+}
+
+const fallbackAuth = {
+  currentUser: null,
+  onAuthStateChanged: (callback: (user: null) => void) => {
+    callback(null);
+    return () => undefined;
+  },
+  signOut: async () => {},
+  languageCode: undefined,
+} as any;
+
+const fallbackDb = {} as any;
+
+export const auth = initializedAuth ?? fallbackAuth;
+export const db = initializedDb ?? fallbackDb;
 
 // Validate Connection to Firestore on boot
 async function testConnection() {
-  const isPlaceholderConfig = !firebaseConfig.apiKey || !firebaseConfig.projectId;
-
   if (isPlaceholderConfig) {
     console.info("Firebase is not configured. Copy .env.example to .env and set your Firebase project credentials.");
+    return;
+  }
+
+  if (!initializedDb || !initializedAuth) {
+    console.warn("Firebase is not fully initialized. Skipping Firestore connection test.");
     return;
   }
 
@@ -42,6 +81,7 @@ async function testConnection() {
     }
   }
 }
+
 testConnection();
 
 // Structured Error Handler for Firestore permission failures
