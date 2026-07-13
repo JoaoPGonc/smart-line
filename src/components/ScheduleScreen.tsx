@@ -134,6 +134,12 @@ export default function ScheduleScreen({
   };
 
   useEffect(() => {
+    if (originCoords?.name) {
+      setOrigin(originCoords.name);
+    }
+  }, [originCoords?.name]);
+
+  useEffect(() => {
     if (destCoords?.name) {
       setDestination(destCoords.name);
     }
@@ -158,15 +164,6 @@ export default function ScheduleScreen({
 
     let resolved = false;
 
-    // Failsafe: if the browser or system blocks GPS silently and doesn't call back within 5.5 seconds, use fallback
-    const failsafeTimeout = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        console.warn("GPS request hung. Using fallback.");
-        useDefaultGpsFallback("O GPS demorou a responder. Usando localização padrão.");
-      }
-    }, 5500);
-
     const useDefaultGpsFallback = (msg?: string) => {
       const fallbackLat = -20.2976;
       const fallbackLng = -40.2958;
@@ -183,41 +180,43 @@ export default function ScheduleScreen({
       setDetectingGps(false);
     };
 
+    const buildDisplayAddress = (data: any, latitude: number, longitude: number) => {
+      if (data?.display_name) {
+        if (data.display_name.length <= 80) {
+          return data.display_name;
+        }
+        const parts = data.display_name.split(",").map((part: string) => part.trim()).filter(Boolean);
+        if (parts.length >= 4) {
+          return parts.slice(0, 4).join(", ");
+        }
+        return parts.slice(0, 3).join(", ");
+      }
+
+      const address = data?.address || {};
+      const road = address.road || address.pedestrian || address.cycleway || address.footway || address.neighbourhood || address.suburb;
+      const place = address.city || address.town || address.village || address.county || address.state;
+      if (road && place) {
+        return `${road}, ${place}`;
+      }
+      if (place) {
+        return place;
+      }
+      return `Minha Localização (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
+    };
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
         if (resolved) return;
         resolved = true;
-        clearTimeout(failsafeTimeout);
         const { latitude, longitude } = position.coords;
-        
-        // Reverse geocode via OpenStreetMap Nominatim API (100% free)
-        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=pt`)
+
+        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=pt&addressdetails=1`)
           .then((res) => {
             if (!res.ok) throw new Error("API error");
             return res.json();
           })
           .then((data) => {
-            // Simplify address representation (e.g., "Vitória, Espírito Santo, Brasil")
-            const address = data.address;
-            let displayAddress = "";
-            if (address) {
-              const city = address.city || address.town || address.village || address.suburb || "";
-              const state = address.state || "";
-              if (city && state) {
-                displayAddress = `${city}, ${state}`;
-              } else {
-                displayAddress = data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-              }
-            } else {
-              displayAddress = data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-            }
-
-            // Shorten if too long
-            if (displayAddress.length > 50) {
-              const parts = displayAddress.split(",");
-              displayAddress = parts.slice(0, 2).join(",").trim();
-            }
-
+            const displayAddress = buildDisplayAddress(data, latitude, longitude);
             setOrigin(displayAddress);
             onSetOriginCoords({
               lat: latitude,
@@ -241,9 +240,8 @@ export default function ScheduleScreen({
       (error) => {
         if (resolved) return;
         resolved = true;
-        clearTimeout(failsafeTimeout);
         console.warn("GPS Location unavailable, using default fallback:", error?.message || error);
-        
+
         let errorMsg = "Não foi possível obter a localização. Usando localização padrão.";
         if (error.code === error.PERMISSION_DENIED) {
           errorMsg = "Acesso à localização recusado. Usando localização padrão.";
@@ -252,10 +250,10 @@ export default function ScheduleScreen({
         } else if (error.code === error.TIMEOUT) {
           errorMsg = "Tempo de GPS esgotado. Usando localização padrão.";
         }
-        
+
         useDefaultGpsFallback(errorMsg);
       },
-      { enableHighAccuracy: false, timeout: 5000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
     );
   };
 
