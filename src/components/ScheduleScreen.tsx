@@ -174,10 +174,54 @@ export default function ScheduleScreen({
         if (cached) {
           const parsed = JSON.parse(cached);
           if (typeof parsed?.lat === "number" && typeof parsed?.lng === "number") {
-            const displayName = parsed.address || `Última localização (${parsed.lat.toFixed(4)}, ${parsed.lng.toFixed(4)})`;
-            saveLocation(parsed.lat, parsed.lng, displayName);
+            // If cached entry already contains an address, use it. Otherwise
+            // set a generic placeholder and attempt an async reverse-geocode
+            // to replace the placeholder with a prettier address (no coords).
+            if (parsed.address) {
+              saveLocation(parsed.lat, parsed.lng, parsed.address);
+              setGpsError(msg || "Usando sua última localização conhecida.");
+              setDetectingGps(false);
+              return;
+            }
+
+            const placeholder = "Última localização conhecida";
+            saveLocation(parsed.lat, parsed.lng, placeholder);
             setGpsError(msg || "Usando sua última localização conhecida.");
             setDetectingGps(false);
+
+            // Try reverse geocoding in background to improve the label
+            (async () => {
+              try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${parsed.lat}&lon=${parsed.lng}&format=json&accept-language=pt`, { headers: { "User-Agent": "SmartLine/1.0" } });
+                if (res.ok) {
+                  const data = await res.json();
+                  let display: string | null = null;
+                  if (data && data.address) {
+                    const a = data.address;
+                    const road = a.road || a.pedestrian || a.footway || a.cycleway || a.path || "";
+                    const neighbourhood = a.neighbourhood || a.suburb || "";
+                    const city = a.city || a.town || a.village || a.county || "";
+                    const state = a.state || a.state_code || "";
+                    const parts: string[] = [];
+                    if ((a.house_number && road) as any) parts.push(`${a.house_number} ${road}`);
+                    else if (road) parts.push(road);
+                    if (neighbourhood) parts.push(neighbourhood);
+                    if (city) parts.push(city);
+                    if (state) parts.push(state);
+                    display = parts.filter(Boolean).join(", ") || null;
+                    const postcode = a.postcode || a.postal_code || null;
+                    if (display && postcode) display = `${display} - CEP ${postcode}`;
+                  }
+                  if (!display && data) display = data.display_name || null;
+                  if (display) {
+                    saveLocation(parsed.lat, parsed.lng, display);
+                    localStorage.setItem("smartline_last_gps", JSON.stringify({ lat: parsed.lat, lng: parsed.lng, address: display }));
+                  }
+                }
+              } catch (e) {
+                // ignore reverse-geocode failures
+              }
+            })();
             return;
           }
         }
@@ -239,19 +283,18 @@ export default function ScheduleScreen({
             if (state) parts.push(state);
 
             let displayAddress = parts.filter(Boolean).join(", ");
+            const postcode = address.postcode || address.postal_code || "";
+            if (displayAddress && postcode) displayAddress = `${displayAddress} - CEP ${postcode}`;
 
-            // Fallback to display_name or coordinates if nothing specific found
+            // Fallback to display_name or a generic label if nothing specific found
             if (!displayAddress) {
-              displayAddress = data.display_name || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-            } else {
-              // Append short coordinates to ensure exactness is visible in the input
-              displayAddress = `${displayAddress} (${latitude.toFixed(5)}, ${longitude.toFixed(5)})`;
+              displayAddress = data.display_name || (postcode ? `CEP ${postcode}` : "Minha Localização");
             }
 
             saveLocation(latitude, longitude, displayAddress);
           })
           .catch(() => {
-            const fallbackAddr = `Minha Localização (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
+            const fallbackAddr = `Minha Localização`;
             saveLocation(latitude, longitude, fallbackAddr);
           })
           .finally(() => {
@@ -711,9 +754,19 @@ export default function ScheduleScreen({
                 onChange={(e) => handleOriginChange(e.target.value)}
                 onFocus={() => { if (originSuggestions.length > 0) setShowOriginSuggestions(true); }}
                 onBlur={() => setTimeout(() => setShowOriginSuggestions(false), 200)}
-                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2.5 px-3.5 text-xs text-slate-700 font-medium focus:outline-none focus:bg-white focus:border-blue-900 transition"
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2.5 px-3.5 pr-10 text-xs text-slate-700 font-medium focus:outline-none focus:bg-white focus:border-blue-900 transition"
                 placeholder="Digite cidade, estado ou endereço"
               />
+              {origin && (
+                <button
+                  type="button"
+                  onClick={() => { setOrigin(""); setShowOriginSuggestions(false); }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-white text-blue-950 border border-slate-200 hover:bg-slate-50 p-1.5 rounded-xl shadow-xs transition cursor-pointer"
+                  aria-label="Limpar origem"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
               {showOriginSuggestions && originSuggestions.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-slate-100 shadow-md rounded-xl max-h-48 overflow-y-auto">
                   {originSuggestions.map((sug, idx) => (
@@ -766,9 +819,19 @@ export default function ScheduleScreen({
                 onFocus={handleDestFocus}
                 onClick={handleDestFocus}
                 onBlur={() => setTimeout(() => setShowDestSuggestions(false), 200)}
-                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2.5 px-3.5 text-xs text-slate-700 font-medium focus:outline-none focus:bg-white focus:border-blue-900 transition"
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2.5 px-3.5 pr-10 text-xs text-slate-700 font-medium focus:outline-none focus:bg-white focus:border-blue-900 transition"
                 placeholder="Digite ou selecione o porto de chegada"
               />
+              {destination && (
+                <button
+                  type="button"
+                  onClick={() => { setDestination(""); setShowDestSuggestions(false); }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 bg-white text-blue-950 border border-slate-200 hover:bg-slate-50 p-1.5 rounded-xl shadow-xs transition cursor-pointer"
+                  aria-label="Limpar destino"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
               {showDestSuggestions && destSuggestions.length > 0 && (
                 <div className="absolute z-20 w-full mt-1 bg-white border border-slate-100 shadow-md rounded-xl max-h-48 overflow-y-auto">
                   {destSuggestions.map((port, idx) => (
