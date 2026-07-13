@@ -107,6 +107,8 @@ export default function App() {
 
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       if (user) {
+        // If a real authenticated user is present, leave demo mode
+        setIsDemo(false);
         localStorage.setItem("smartline_logged_in", "true");
         
         // Pre-load from localStorage for offline support
@@ -432,11 +434,11 @@ export default function App() {
           />
         );
       case ScreenId.Ports:
-        return <PortsScreen onNavigate={navigateTo} />;
+        return <PortsScreen onNavigate={navigateTo} isDemo={isDemo} onRequireCreateAccount={() => { setCurrentScreen(ScreenId.Register); localStorage.removeItem("is_demo"); }} />;
       case ScreenId.TransitCenter:
         return <TransitCenterScreen onNavigate={navigateTo} />;
       case ScreenId.EmitAlert:
-        return <EmitAlertScreen onNavigate={navigateTo} />;
+        return <EmitAlertScreen onNavigate={navigateTo} isDemo={isDemo} onRequireCreateAccount={() => { setCurrentScreen(ScreenId.Register); localStorage.removeItem("is_demo"); }} />;
       case ScreenId.AlertSuccess:
         return <AlertSuccessScreen onNavigate={navigateTo} />;
       case ScreenId.MyAccount:

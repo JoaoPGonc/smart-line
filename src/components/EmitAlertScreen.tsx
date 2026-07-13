@@ -5,11 +5,15 @@ import { Car, TrafficCone, Hammer, AlertOctagon, CheckSquare, Square, ChevronRig
 import { auth, db } from "../lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
+import RequireAccountModal from "./RequireAccountModal";
+
 interface EmitAlertScreenProps {
   onNavigate: (screen: ScreenId) => void;
+  isDemo?: boolean;
+  onRequireCreateAccount?: () => void;
 }
 
-export default function EmitAlertScreen({ onNavigate }: EmitAlertScreenProps) {
+export default function EmitAlertScreen({ onNavigate, isDemo = false, onRequireCreateAccount }: EmitAlertScreenProps) {
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [userLocationStr, setUserLocationStr] = useState<string>(() => {
@@ -33,6 +37,7 @@ export default function EmitAlertScreen({ onNavigate }: EmitAlertScreenProps) {
     return null;
   });
   const [isLocating, setIsLocating] = useState(false);
+  const [showGuestModal, setShowGuestModal] = useState(false);
 
   // Obtain GPS coordinates and reverse geocode them on mount
   useEffect(() => {
@@ -134,6 +139,10 @@ export default function EmitAlertScreen({ onNavigate }: EmitAlertScreenProps) {
   ];
 
   const handleSendAlert = async () => {
+    if (isDemo) {
+      setShowGuestModal(true);
+      return;
+    }
     if (!selectedType) {
       setError("Por favor, selecione um tipo de alerta antes de enviar.");
       return;
@@ -292,6 +301,19 @@ export default function EmitAlertScreen({ onNavigate }: EmitAlertScreenProps) {
 
       {/* Reusable bottom navigation */}
       <BottomNavigation activeTab="transito" onNavigate={onNavigate} />
+
+      {showGuestModal && (
+        <RequireAccountModal
+          title="Crie uma conta para emitir um alerta!"
+          message="Para garantir qualidade dos relatos e evitar falsos positivos, apenas usuários registrados podem emitir alertas."
+          onClose={() => setShowGuestModal(false)}
+          onCreateAccount={() => {
+            setShowGuestModal(false);
+            if (onRequireCreateAccount) onRequireCreateAccount();
+            else onNavigate(ScreenId.Register);
+          }}
+        />
+      )}
     </div>
   );
 }

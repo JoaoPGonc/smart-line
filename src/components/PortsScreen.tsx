@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { ScreenId } from "../types";
 import BottomNavigation from "./BottomNavigation";
+import RequireAccountModal from "./RequireAccountModal";
 import { Activity, Clock, TrendingUp, TrendingDown, Minus, ThumbsUp, MapPin, Circle } from "lucide-react";
 import { BRAZILIAN_PORTS, fetchRecentReports, submitQueueReport, calculateEstimatedWaitTime, QueueReport, QueueStatus, findClosestPort, fetchPortAppointments, PortAppointment } from "../utils/portQueueService";
 import { auth } from "../lib/firebase";
 
 interface PortsScreenProps {
   onNavigate: (screen: ScreenId) => void;
+  isDemo?: boolean;
+  onRequireCreateAccount?: () => void;
 }
 
-export default function PortsScreen({ onNavigate }: PortsScreenProps) {
+export default function PortsScreen({ onNavigate, isDemo = false, onRequireCreateAccount }: PortsScreenProps) {
   const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "error">("connecting");
   
   // States for Caminhoneiros (Truck Queues) Tab
@@ -22,6 +25,7 @@ export default function PortsScreen({ onNavigate }: PortsScreenProps) {
   const [showSuccess, setShowSuccess] = useState(false);
   const [loadingReports, setLoadingReports] = useState(true);
   const [selectedReportStatus, setSelectedReportStatus] = useState<QueueStatus | null>(null);
+  const [showGuestModal, setShowGuestModal] = useState(false);
 
   useEffect(() => {
     // Simulate initial connection
@@ -66,8 +70,8 @@ export default function PortsScreen({ onNavigate }: PortsScreenProps) {
   }, [selectedPortId]);
 
   const handleReport = async (status: QueueStatus) => {
-    if (!auth.currentUser) {
-      alert("Você precisa estar logado para reportar o trânsito.");
+    if (!auth.currentUser || isDemo) {
+      setShowGuestModal(true);
       return;
     }
     setIsReporting(true);
@@ -143,6 +147,19 @@ export default function PortsScreen({ onNavigate }: PortsScreenProps) {
           </div>
         </div>
       </div>
+
+      {showGuestModal && (
+        <RequireAccountModal
+          title="Crie uma conta para reportar"
+          message="Relatos colaborativos exigem uma conta para garantir confiabilidade. Crie uma conta para contribuir com a comunidade."
+          onClose={() => setShowGuestModal(false)}
+          onCreateAccount={() => {
+            setShowGuestModal(false);
+            if (onRequireCreateAccount) onRequireCreateAccount();
+            else onNavigate(ScreenId.Register);
+          }}
+        />
+      )}
 
       <div className="flex-1 overflow-y-auto px-4 mt-4 pb-6 scrollbar-hide space-y-4">
         {/* Port Selector */}
