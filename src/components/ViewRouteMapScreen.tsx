@@ -60,6 +60,8 @@ export default function ViewRouteMapScreen({ onNavigate, originCoords, destCoord
           showZoomControls={false}
           showGpsIndicator={false}
           stops={stops}
+          osrmFailed={appointment?.osrmFailed}
+          overpassFailed={appointment?.overpassFailed}
           onLoadingChange={setIsRouteLoading}
         />
       </div>

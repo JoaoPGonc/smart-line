@@ -442,6 +442,8 @@ export default function ActiveRouteScreen({
           showGpsIndicator={false}
           stops={stops}
           alerts={alerts}
+          osrmFailed={appointment?.osrmFailed}
+          overpassFailed={appointment?.overpassFailed}
           onRouteReady={handleRouteReady}
         />
       </div>

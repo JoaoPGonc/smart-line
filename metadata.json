@@ -1,0 +1,10 @@
+{
+  "name": "Smart Line",
+  "description": "Smart Line — aplicativo de logística para caminhoneiros: planeje rotas, acompanhe filas de porto, agende horários e receba alertas de trânsito em tempo real.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

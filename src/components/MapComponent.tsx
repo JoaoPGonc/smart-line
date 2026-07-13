@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import * as L from "leaflet";
 import { snapToRoute, OsrmLeg } from "../utils/routeUtils";
-import { Compass, LocateFixed } from "lucide-react";
+import { Compass, LocateFixed, RefreshCw } from "lucide-react";
 import { TrafficAlert } from "../types";
 
 const routeCache = new Map<string, { routePoints: [number, number][]; legs: OsrmLeg[] }>();
@@ -33,6 +33,8 @@ interface MapComponentProps {
   showGpsIndicator?: boolean;
   stops?: Array<{ id: string; title: string; desc: string; lat: number; lng: number; time: string }> | null;
   alerts?: TrafficAlert[] | null;
+  osrmFailed?: boolean;
+  overpassFailed?: boolean;
   /** Called once OSRM route data has been loaded. Provides the polyline points and step data for GPS navigation. */
   onRouteReady?: (routePoints: [number, number][], legs: OsrmLeg[]) => void;
   /** Called whenever the route is being fetched/calculated, and again once it finishes (true = ainda carregando). */
@@ -51,9 +53,23 @@ export default function MapComponent({
   showGpsIndicator = true,
   stops = null,
   alerts = null,
+  osrmFailed = false,
+  overpassFailed = false,
   onRouteReady,
   onLoadingChange
 }: MapComponentProps) {
+  // Default Espirito Santo coordinates
+  const defaultOrigin = { lat: -18.0253, lng: -40.1509, name: "Posto Carreteiro (Pedro Canário)" };
+  const defaultDest = { lat: -20.2831, lng: -40.2435, name: "Porto de Tubarão (Vitória)" };
+
+  const startCoords = originCoords && typeof originCoords.lat === "number" && !isNaN(originCoords.lat) && typeof originCoords.lng === "number" && !isNaN(originCoords.lng)
+    ? originCoords 
+    : defaultOrigin;
+
+  const endCoords = destCoords && typeof destCoords.lat === "number" && !isNaN(destCoords.lat) && typeof destCoords.lng === "number" && !isNaN(destCoords.lng)
+    ? destCoords 
+    : defaultDest;
+
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const routePolylineRef = useRef<L.Polyline | null>(null);
@@ -66,16 +82,44 @@ export default function MapComponent({
   useEffect(() => {
     if (onLoadingChange) onLoadingChange(loadingRoute);
   }, [loadingRoute, onLoadingChange]);
+
   const [showRecenterBtn, setShowRecenterBtn] = useState(false);
   const [apiFallbackAlert, setApiFallbackAlert] = useState<"osrm" | "overpass" | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  const handleRetryRoute = () => {
+    const coordsList = [
+      `${startCoords.lng},${startCoords.lat}`
+    ];
+    
+    const stopsToRoute = stopsRef.current || [];
+
+    stopsToRoute.forEach(stop => {
+      coordsList.push(`${stop.lng},${stop.lat}`);
+    });
+    
+    coordsList.push(`${endCoords.lng},${endCoords.lat}`);
+    
+    const routeKey = coordsList.join(";");
+    const needsTurnByTurn = routeMode === "active";
+    const cacheKey = needsTurnByTurn ? `${routeKey}|steps` : routeKey;
+
+    routeCache.delete(cacheKey);
+    routeCache.delete(routeKey);
+
+    setRetryCount(prev => prev + 1);
+    setApiFallbackAlert(null);
+  };
 
   useEffect(() => {
-    if (stops && stops.length > 0) {
-      setApiFallbackAlert(null);
-    } else if (stops && stops.length === 0) {
+    if (osrmFailed) {
+      setApiFallbackAlert("osrm");
+    } else if (overpassFailed) {
       setApiFallbackAlert("overpass");
+    } else {
+      setApiFallbackAlert(null);
     }
-  }, [stops]);
+  }, [osrmFailed, overpassFailed]);
 
   const routePointsRef = useRef<[number, number][]>([]);
   const truckMarkerRef = useRef<L.Marker | null>(null);
@@ -150,18 +194,6 @@ export default function MapComponent({
       alertMarkersRef.current.push(marker);
     });
   }, [alerts, loadingRoute]);
-
-  // Default Espirito Santo coordinates
-  const defaultOrigin = { lat: -18.0253, lng: -40.1509, name: "Posto Carreteiro (Pedro Canário)" };
-  const defaultDest = { lat: -20.2831, lng: -40.2435, name: "Porto de Tubarão (Vitória)" };
-
-  const startCoords = originCoords && typeof originCoords.lat === "number" && !isNaN(originCoords.lat) && typeof originCoords.lng === "number" && !isNaN(originCoords.lng)
-    ? originCoords 
-    : defaultOrigin;
-
-  const endCoords = destCoords && typeof destCoords.lat === "number" && !isNaN(destCoords.lat) && typeof destCoords.lng === "number" && !isNaN(destCoords.lng)
-    ? destCoords 
-    : defaultDest;
 
   // Helper to draw or update the truck marker position
   const updateTruckPosition = (map: L.Map, points: [number, number][]) => {
@@ -500,9 +532,7 @@ export default function MapComponent({
 
           // Ultimate fallback: direct geodesic straight line
           console.warn("Both multi-point and direct OSRM fetches failed. Falling back to straight geodesic path.");
-          if (!stopsRef.current || stopsRef.current.length === 0) {
-            setApiFallbackAlert("osrm");
-          }
+          setApiFallbackAlert("osrm");
           const fallbackPoints: [number, number][] = [
             [startCoords.lat, startCoords.lng],
             [endCoords.lat, endCoords.lng]
@@ -550,7 +580,7 @@ export default function MapComponent({
         mapInstanceRef.current = null;
       }
     };
-  }, [routeMode, startCoords.lat, startCoords.lng, endCoords.lat, endCoords.lng]); // stops removido das deps: usa stopsRef para evitar remontagem do mapa
+  }, [routeMode, startCoords.lat, startCoords.lng, endCoords.lat, endCoords.lng, retryCount]); // stops removido das deps: usa stopsRef para evitar remontagem do mapa
 
   // 5. Update truck position smoothly when the progress or userGpsCoords updates
   useEffect(() => {
@@ -661,7 +691,7 @@ export default function MapComponent({
       )}
 
       {/* Alert Banner for API Fallbacks */}
-      {apiFallbackAlert && (
+      {apiFallbackAlert && routeMode !== "active" && (
         <div className="absolute top-16 left-3 right-3 z-30 animate-in slide-in-from-top-4 duration-300">
           <div className="bg-slate-900/95 border-l-4 border-amber-500 text-slate-100 p-3.5 rounded-xl shadow-2xl backdrop-blur-md flex gap-3 items-start relative overflow-hidden">
             <span className="text-amber-500 text-lg mt-0.5 leading-none">⚠️</span>
@@ -674,13 +704,20 @@ export default function MapComponent({
                   ? "Instabilidade temporária no mapa. Traçamos um caminho provisório para evitar travamentos. Suas paradas e horários continuam 100% corretos!"
                   : "O buscador de postos está instável. Sugerimos paradas automáticas seguras ao longo da rodovia para manter seu cronograma em dia."}
               </p>
-              <div className="mt-1.5 flex gap-2">
+              <div className="mt-2.5 flex flex-wrap items-center gap-2">
                 <span className="text-[9px] bg-amber-500/10 text-amber-400 py-0.5 px-1.5 rounded font-mono border border-amber-500/20">
                   {apiFallbackAlert === "osrm" ? "Aviso de Rota" : "Aviso de Postos"}
                 </span>
                 <span className="text-[9px] bg-slate-800 text-slate-400 py-0.5 px-1.5 rounded border border-slate-700">
                   Modo Provisório
                 </span>
+                <button
+                  onClick={handleRetryRoute}
+                  className="pointer-events-auto text-[9px] bg-blue-600 hover:bg-blue-500 active:scale-95 text-white py-0.5 px-2 rounded-md font-sans font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs border border-blue-500/30"
+                >
+                  <RefreshCw className="w-3 h-3 animate-spin-hover" />
+                  Tentar carregar rota
+                </button>
               </div>
             </div>
             <button 

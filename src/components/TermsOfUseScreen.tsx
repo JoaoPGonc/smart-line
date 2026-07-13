@@ -32,10 +32,10 @@ export default function TermsOfUseScreen({ onNavigate }: TermsOfUseScreenProps) 
 
           <div className="space-y-3.5 text-xs text-slate-600 leading-relaxed overflow-y-auto max-h-[460px] pr-1">
             <p>
-              <strong>1. Objeto:</strong> O presente aplicativo visa otimizar os fluxos de chegada e agendamento de cargas no Porto de Tubarão e pátios logísticos credenciados.
+              <strong>1. Objeto:</strong> O presente aplicativo visa otimizar os fluxos de chegada e agendamento de cargas nos portos e pátios logísticos credenciados.
             </p>
             <p>
-              <strong>2. Compartilhamento de Tráfego:</strong> Ao emitir um Alerta de Tráfego, o usuário se compromete a compartilhar apenas informações verídicas e constatadas na rodovia BR-101 ou adjacências.
+              <strong>2. Compartilhamento de Tráfego:</strong> Ao emitir um Alerta de Tráfego, o usuário se compromete a compartilhar apenas informações verídicas e constatadas nas rodovias.
             </p>
             <p>
               <strong>3. Geolocalização:</strong> Este aplicativo utiliza sua geolocalização em tempo real para calcular estimativas precisas de tráfego, estimativa de chegada (ETA) e sugerir pontos de apoio adequados.
