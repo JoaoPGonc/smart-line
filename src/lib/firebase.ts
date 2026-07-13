@@ -1,29 +1,44 @@
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { initializeApp, FirebaseOptions } from "firebase/app";
+import { getAuth, Auth } from "firebase/auth";
 import { getFirestore, doc, getDocFromServer } from "firebase/firestore";
 
 // Firebase config is provided via environment variables (see .env.example).
 // It is never committed to the repository — set these in your local .env
 // file and in the deploy environment (e.g. GitHub Actions secrets).
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
-  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || undefined,
+const firebaseConfig: FirebaseOptions = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || undefined,
+  databaseURL: undefined,
 };
 
-// Initialize Firebase with the environment-provided configuration
-const app = initializeApp(firebaseConfig);
+const hasValidFirebaseConfig = Boolean(
+  firebaseConfig.apiKey &&
+  firebaseConfig.projectId &&
+  firebaseConfig.appId
+);
 
-// Initialize Authentication
-export const auth = getAuth(app);
+let app;
+let authInstance: Auth;
+let dbInstance;
 
-// Initialize Firestore with custom database ID from config
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId as string); /* CRITICAL: The app will break without this line */
+if (hasValidFirebaseConfig) {
+  app = initializeApp(firebaseConfig);
+  authInstance = getAuth(app);
+  dbInstance = getFirestore(app);
+} else {
+  console.warn("Firebase config is incomplete. Running without Firebase services.");
+  app = null;
+  authInstance = getAuth();
+  dbInstance = null;
+}
+
+export const auth = authInstance;
+export const db = dbInstance;
 
 // Validate Connection to Firestore on boot
 async function testConnection() {

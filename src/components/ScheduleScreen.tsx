@@ -153,35 +153,60 @@ export default function ScheduleScreen({
       setGpsError("Seu navegador não oferece suporte para geolocalização.");
       return;
     }
-    setDetectingGps(true);
-    setGpsError("");
 
-    let resolved = false;
+    const saveLocation = (latitude: number, longitude: number, displayName: string) => {
+      setOrigin(displayName);
+      onSetOriginCoords({
+        lat: latitude,
+        lng: longitude,
+        name: displayName
+      });
+      localStorage.setItem("smartline_last_gps", JSON.stringify({
+        lat: latitude,
+        lng: longitude,
+        address: displayName
+      }));
+    };
 
-    // Failsafe: if the browser or system blocks GPS silently and doesn't call back within 5.5 seconds, use fallback
-    const failsafeTimeout = setTimeout(() => {
-      if (!resolved) {
-        resolved = true;
-        console.warn("GPS request hung. Using fallback.");
-        useDefaultGpsFallback("O GPS demorou a responder. Usando localização padrão.");
+    const useCachedGpsFallback = (msg?: string) => {
+      try {
+        const cached = localStorage.getItem("smartline_last_gps");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (typeof parsed?.lat === "number" && typeof parsed?.lng === "number") {
+            const displayName = parsed.address || `Última localização (${parsed.lat.toFixed(4)}, ${parsed.lng.toFixed(4)})`;
+            saveLocation(parsed.lat, parsed.lng, displayName);
+            setGpsError(msg || "Usando sua última localização conhecida.");
+            setDetectingGps(false);
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to read cached GPS:", error);
       }
-    }, 5500);
 
-    const useDefaultGpsFallback = (msg?: string) => {
       const fallbackLat = -20.2976;
       const fallbackLng = -40.2958;
       const fallbackAddr = "Vitória, ES (Localização Padrão)";
-      setOrigin(fallbackAddr);
-      onSetOriginCoords({
-        lat: fallbackLat,
-        lng: fallbackLng,
-        name: fallbackAddr
-      });
+      saveLocation(fallbackLat, fallbackLng, fallbackAddr);
       if (msg) {
         setGpsError(msg);
       }
       setDetectingGps(false);
     };
+
+    setDetectingGps(true);
+    setGpsError("");
+
+    let resolved = false;
+
+    const failsafeTimeout = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        console.warn("GPS request hung. Using last known or fallback location.");
+        useCachedGpsFallback("O GPS demorou a responder. Usando sua última localização conhecida.");
+      }
+    }, 15000);
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -189,50 +214,45 @@ export default function ScheduleScreen({
         resolved = true;
         clearTimeout(failsafeTimeout);
         const { latitude, longitude } = position.coords;
-        
-        // Reverse geocode via OpenStreetMap Nominatim API (100% free)
-        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=pt`)
+
+        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&accept-language=pt`, {
+          headers: { "User-Agent": "SmartLine/1.0" }
+        })
           .then((res) => {
             if (!res.ok) throw new Error("API error");
             return res.json();
           })
           .then((data) => {
-            // Simplify address representation (e.g., "Vitória, Espírito Santo, Brasil")
-            const address = data.address;
-            let displayAddress = "";
-            if (address) {
-              const city = address.city || address.town || address.village || address.suburb || "";
-              const state = address.state || "";
-              if (city && state) {
-                displayAddress = `${city}, ${state}`;
-              } else {
-                displayAddress = data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-              }
+            const address = data.address || {};
+            // Prefer street-level information when available
+            const houseNumber = address.house_number || "";
+            const road = address.road || address.pedestrian || address.footway || address.cycleway || address.path || "";
+            const neighbourhood = address.neighbourhood || address.suburb || "";
+            const city = address.city || address.town || address.village || address.county || "";
+            const state = address.state || address.state_code || "";
+
+            const parts: string[] = [];
+            if (houseNumber && road) parts.push(`${houseNumber} ${road}`);
+            else if (road) parts.push(road);
+            if (neighbourhood) parts.push(neighbourhood);
+            if (city) parts.push(city);
+            if (state) parts.push(state);
+
+            let displayAddress = parts.filter(Boolean).join(", ");
+
+            // Fallback to display_name or coordinates if nothing specific found
+            if (!displayAddress) {
+              displayAddress = data.display_name || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
             } else {
-              displayAddress = data.display_name || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+              // Append short coordinates to ensure exactness is visible in the input
+              displayAddress = `${displayAddress} (${latitude.toFixed(5)}, ${longitude.toFixed(5)})`;
             }
 
-            // Shorten if too long
-            if (displayAddress.length > 50) {
-              const parts = displayAddress.split(",");
-              displayAddress = parts.slice(0, 2).join(",").trim();
-            }
-
-            setOrigin(displayAddress);
-            onSetOriginCoords({
-              lat: latitude,
-              lng: longitude,
-              name: displayAddress
-            });
+            saveLocation(latitude, longitude, displayAddress);
           })
           .catch(() => {
             const fallbackAddr = `Minha Localização (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
-            setOrigin(fallbackAddr);
-            onSetOriginCoords({
-              lat: latitude,
-              lng: longitude,
-              name: fallbackAddr
-            });
+            saveLocation(latitude, longitude, fallbackAddr);
           })
           .finally(() => {
             setDetectingGps(false);
@@ -242,20 +262,20 @@ export default function ScheduleScreen({
         if (resolved) return;
         resolved = true;
         clearTimeout(failsafeTimeout);
-        console.warn("GPS Location unavailable, using default fallback:", error?.message || error);
-        
-        let errorMsg = "Não foi possível obter a localização. Usando localização padrão.";
+        console.warn("GPS Location unavailable:", error?.message || error);
+
+        let errorMsg = "Não foi possível obter a localização em tempo real. Usando sua última localização conhecida.";
         if (error.code === error.PERMISSION_DENIED) {
-          errorMsg = "Acesso à localização recusado. Usando localização padrão.";
+          errorMsg = "Acesso à localização recusado. Usando sua última localização conhecida.";
         } else if (error.code === error.POSITION_UNAVAILABLE) {
-          errorMsg = "Sinal de GPS indisponível no momento. Usando localização padrão.";
+          errorMsg = "Sinal de GPS indisponível no momento. Usando sua última localização conhecida.";
         } else if (error.code === error.TIMEOUT) {
-          errorMsg = "Tempo de GPS esgotado. Usando localização padrão.";
+          errorMsg = "Tempo de GPS esgotado. Usando sua última localização conhecida.";
         }
-        
-        useDefaultGpsFallback(errorMsg);
+
+        useCachedGpsFallback(errorMsg);
       },
-      { enableHighAccuracy: false, timeout: 5000 }
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
     );
   };
 
