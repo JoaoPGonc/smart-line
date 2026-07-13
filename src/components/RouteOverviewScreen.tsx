@@ -28,6 +28,14 @@ export default function RouteOverviewScreen({
 }: RouteOverviewScreenProps) {
   const [showStartPrompt, setShowStartPrompt] = useState(false);
 
+  const openOutsideApp = (url: string) => (e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => {
+    const w = window as any;
+    if (w.AppInventor && typeof w.AppInventor.setWebViewString === "function") {
+      e.preventDefault();
+      w.AppInventor.setWebViewString(url);
+    }
+  };
+
 
   // 1. Pending view when no appointment is booked yet
   if (!appointments || appointments.length === 0) {
@@ -300,11 +308,14 @@ export default function RouteOverviewScreen({
                   Seguir no Smart Line
                 </button>
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
                     setShowStartPrompt(false);
                     const selectedStops = (appointment?.customStops || []).filter((_, idx) => checkedStops[idx]);
                     const url = generateGoogleMapsUrl(originCoords, destCoords, selectedStops);
-                    if (url) window.open(url, '_blank');
+                    if (url) openOutsideApp(url)(e as React.MouseEvent<HTMLButtonElement>);
+                    if (!((window as any).AppInventor && typeof (window as any).AppInventor.setWebViewString === "function")) {
+                      window.open(url, '_blank');
+                    }
                   }}
                   className="w-full bg-slate-100 text-slate-700 font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2"
                 >
