@@ -307,21 +307,20 @@ export default function RouteOverviewScreen({
                 >
                   Seguir no Smart Line
                 </button>
-                <button
+                <a
+                  href={generateGoogleMapsUrl(originCoords, destCoords, (appointment?.customStops || []).filter((_, idx) => checkedStops[idx]))}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   onClick={(e) => {
                     setShowStartPrompt(false);
-                    const selectedStops = (appointment?.customStops || []).filter((_, idx) => checkedStops[idx]);
-                    const url = generateGoogleMapsUrl(originCoords, destCoords, selectedStops);
-                    if (url) openOutsideApp(url)(e as React.MouseEvent<HTMLButtonElement>);
-                    if (!((window as any).AppInventor && typeof (window as any).AppInventor.setWebViewString === "function")) {
-                      window.open(url, '_blank');
-                    }
+                    const url = generateGoogleMapsUrl(originCoords, destCoords, (appointment?.customStops || []).filter((_, idx) => checkedStops[idx]));
+                    if (url) openOutsideApp(url)(e as React.MouseEvent<HTMLAnchorElement>);
                   }}
                   className="w-full bg-slate-100 text-slate-700 font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider flex items-center justify-center gap-2"
                 >
                   <MapPin className="w-4 h-4" />
                   Ir para Google Maps
-                </button>
+                </a>
                 <p className="text-[10px] text-slate-400 text-center leading-tight -mt-1 mb-1">
                   * O Google Maps não considera o tempo de espera de cada parada.
                 </p>
