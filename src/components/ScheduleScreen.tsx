@@ -575,6 +575,9 @@ export default function ScheduleScreen({
     
     if (isCancelledRef.current) return;
     
+    // Use the actual route span (computed after OSRM fetch) as the canonical estimatedDuration
+    const estHours = Math.floor(actualSpanMins / 60);
+    const estMins = actualSpanMins % 60;
     const appointment: Appointment = {
       origin,
       destination,
@@ -582,7 +585,7 @@ export default function ScheduleScreen({
       departureDate: departureDateStr,
       arrivalDate: date,
       time: departureHourStr, // Saved as the suggested departure time!
-      estimatedDuration: `${totalDurationHoursPart}h ${totalDurationMinsPart}m`,
+      estimatedDuration: `${estHours}h ${estMins}m`,
       drivingDuration: `${Math.floor(actualDrivingDurationMins / 60)}h ${actualDrivingDurationMins % 60}m`,
       estimatedArrival: arrivalHourStr, // Desired arrival time is stored here
       portQueueTime: queueTime,

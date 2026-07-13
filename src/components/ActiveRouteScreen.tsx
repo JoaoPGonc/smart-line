@@ -375,19 +375,34 @@ export default function ActiveRouteScreen({
     }
   }
 
-  const targetRemainingMinutesTotal = Math.round((targetRemainingKm / 65) * 60);
+  // Scheduled total minutes from the appointment (canonical static duration)
+  const scheduledTotalMins = parseDurationMinutes(appointment?.estimatedDuration || appointment?.drivingDuration || "0m");
+
+  const targetRemainingMinutesByDistance = Math.round((targetRemainingKm / 65) * 60);
+  const remainingMinutesByDistance = Math.round((effectiveRemainingKm / 65) * 60);
+
+  // If GPS is not yet active / user hasn't started moving, prefer the scheduled ETA
+  const useScheduledEta = !isUsingRealGps || !userGpsCoords || progress < 0.01;
+
+  const targetRemainingMinutesTotal = useScheduledEta
+    ? Math.max(0, Math.round(scheduledTotalMins * (1 - progress)))
+    : targetRemainingMinutesByDistance;
+
+  const remainingMinutesTotal = useScheduledEta
+    ? Math.max(0, Math.round(scheduledTotalMins * (1 - progress)))
+    : remainingMinutesByDistance;
+
   const targetRemainingHours = Math.floor(targetRemainingMinutesTotal / 60);
   const targetRemainingMinutes = targetRemainingMinutesTotal % 60;
   const targetFormattedDuration =
-    targetRemainingKm === 0
+    targetRemainingMinutesTotal === 0
       ? "0m"
       : `${targetRemainingHours > 0 ? targetRemainingHours + "h " : ""}${targetRemainingMinutes}m`;
 
-  const remainingMinutesTotal = Math.round((effectiveRemainingKm / 65) * 60);
   const remainingHours = Math.floor(remainingMinutesTotal / 60);
   const remainingMinutes = remainingMinutesTotal % 60;
   const formattedDurationTotal =
-    effectiveRemainingKm === 0
+    remainingMinutesTotal === 0
       ? "0m"
       : `${remainingHours > 0 ? remainingHours + "h " : ""}${remainingMinutes}m`;
 

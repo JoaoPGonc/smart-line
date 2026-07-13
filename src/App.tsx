@@ -183,10 +183,12 @@ export default function App() {
   useEffect(() => {
     const user = auth.currentUser;
     if (user && !isDemo) {
-      setDoc(doc(db, "users", user.uid), {
-        appointments: appointments,
-        selectedAppointmentIndex: selectedAppointmentIndex,
-      }, { merge: true }).catch((e) => {
+      // Firestore rejects `undefined` values. Sanitize objects by JSON round-trip
+      const safeAppointments = appointments ? JSON.parse(JSON.stringify(appointments)) : [];
+      const payload: any = { appointments: safeAppointments };
+      if (selectedAppointmentIndex !== undefined) payload.selectedAppointmentIndex = selectedAppointmentIndex;
+
+      setDoc(doc(db, "users", user.uid), payload, { merge: true }).catch((e) => {
         console.error("Error syncing to Firestore:", e);
         handleFirestoreError(e, OperationType.WRITE, `users/${user.uid}`);
       });
@@ -210,8 +212,9 @@ export default function App() {
   useEffect(() => {
     const user = auth.currentUser;
     if (user && !isDemo) {
+      const safeOrigin = originCoords ? JSON.parse(JSON.stringify(originCoords)) : null;
       setDoc(doc(db, "users", user.uid), {
-        lastOriginCoords: originCoords
+        lastOriginCoords: safeOrigin
       }, { merge: true }).catch((e) => {
         console.error("Error syncing to Firestore:", e);
         handleFirestoreError(e, OperationType.WRITE, `users/${user.uid}`);
@@ -229,8 +232,9 @@ export default function App() {
   useEffect(() => {
     const user = auth.currentUser;
     if (user && !isDemo) {
+      const safeDest = destCoords ? JSON.parse(JSON.stringify(destCoords)) : null;
       setDoc(doc(db, "users", user.uid), {
-        lastDestCoords: destCoords
+        lastDestCoords: safeDest
       }, { merge: true }).catch((e) => {
         console.error("Error syncing to Firestore:", e);
         handleFirestoreError(e, OperationType.WRITE, `users/${user.uid}`);
@@ -335,8 +339,10 @@ export default function App() {
             onNavigate={navigateTo}
             onSetAppointment={(newApp) => {
               if (newApp) {
+                // Remove undefined fields before storing/ syncing
+                const safeApp = JSON.parse(JSON.stringify(newApp));
                 setAppointments((prev) => {
-                  const updated = [...prev, newApp];
+                  const updated = [...prev, safeApp];
                   setSelectedAppointmentIndex(updated.length - 1);
                   return updated;
                 });

@@ -74,7 +74,8 @@ export default function RouteOverviewScreen({
   const destination = appointment?.destination
     ? formatAddress(appointment.destination.split("-")[0]?.trim() || appointment.destination, "Porto de Tubarão")
     : "Porto de Tubarão";
-  const duration = appointment?.drivingDuration || appointment?.estimatedDuration || "4h 35m";
+  // Prefer the scheduled (agendamento) estimated duration as the canonical static duration
+  const duration = appointment?.estimatedDuration || appointment?.drivingDuration || appointment?.estimatedDuration || "4h 35m";
   const departure = appointment?.time || "11:30";
   const queue = appointment?.portQueueTime || "1h 45m";
   const eta = appointment?.estimatedArrival || "16:05";
