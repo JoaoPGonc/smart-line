@@ -691,48 +691,7 @@ export default function MapComponent({
       )}
 
       {/* Alert Banner for API Fallbacks */}
-      {apiFallbackAlert && routeMode !== "active" && (
-        <div className="absolute top-16 left-3 right-3 z-30 animate-in slide-in-from-top-4 duration-300">
-          <div className="bg-slate-900/95 border-l-4 border-amber-500 text-slate-100 p-3.5 rounded-xl shadow-2xl backdrop-blur-md flex gap-3 items-start relative overflow-hidden">
-            <span className="text-amber-500 text-lg mt-0.5 leading-none">⚠️</span>
-            <div className="flex-1 pr-6">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">
-                {apiFallbackAlert === "osrm" ? "Mapa Simplificado" : "Paradas Estimadas"}
-              </h4>
-              <p className="text-[11px] text-slate-300 leading-relaxed font-medium">
-                {apiFallbackAlert === "osrm" 
-                  ? "Instabilidade temporária no mapa. Traçamos um caminho provisório para evitar travamentos. Suas paradas e horários continuam 100% corretos!"
-                  : "O buscador de postos está instável. Sugerimos paradas automáticas seguras ao longo da rodovia para manter seu cronograma em dia."}
-              </p>
-              <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                <span className="text-[9px] bg-amber-500/10 text-amber-400 py-0.5 px-1.5 rounded font-mono border border-amber-500/20">
-                  {apiFallbackAlert === "osrm" ? "Aviso de Rota" : "Aviso de Postos"}
-                </span>
-                <span className="text-[9px] bg-slate-800 text-slate-400 py-0.5 px-1.5 rounded border border-slate-700">
-                  Modo Provisório
-                </span>
-                <button
-                  onClick={handleRetryRoute}
-                  className="pointer-events-auto text-[9px] bg-blue-600 hover:bg-blue-500 active:scale-95 text-white py-0.5 px-2 rounded-md font-sans font-bold flex items-center gap-1 transition-all cursor-pointer shadow-xs border border-blue-500/30"
-                >
-                  <RefreshCw className="w-3 h-3 animate-spin-hover" />
-                  Tentar carregar rota
-                </button>
-              </div>
-            </div>
-            <button 
-              onClick={() => setApiFallbackAlert(null)}
-              className="absolute top-2.5 right-2.5 text-slate-400 hover:text-white hover:bg-slate-800 p-1 rounded-lg transition"
-              title="Fechar aviso"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
+      
 
     </div>
   );
